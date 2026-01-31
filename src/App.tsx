@@ -1,8 +1,31 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
-import {ProductItem} from "./components/ProductItem"
+import {ProductItem} from "./components/ProductItem"; 
+import { useState } from 'react';
+import {Product} from "./types/Product"; 
 
 export default function App() {
+  const [products, setProducts] = useState<Product[]>([
+    {id : 1, nombre : "Delantal Black", cantidadInicial: 20, cantidadVendida : 10, precio : 28000}, 
+    {id : 2, nombre : "Delantal Colurs", cantidadInicial: 20, cantidadVendida : 10, precio : 28000}, 
+    {id : 3, nombre : "Delantal Cordura lisa", cantidadInicial: 10, cantidadVendida : 5, precio : 20000}, 
+    {id : 4, nombre : "Delantal Cordura estampada", cantidadInicial: 10, cantidadVendida : 5, precio : 24000}, 
+  ])
+  function agregarStock(id : number) {
+    setProducts(products => 
+      products.map(product => 
+        product.id === id ? {...product, cantidadInicial : product.cantidadInicial + 1} : product
+      )
+    );
+  }
+  
+  function quitarStock(id : number) {
+    setProducts(products => 
+      products.map(product => 
+        product.id === id && product.cantidadInicial > 0 ? {...product, cantidadInicial : product.cantidadInicial - 1} : product
+      )
+    )
+  }
   return (
     <View style = {styles.container}>
       <Text style = {styles.title}>Control de Stock RPPRO</Text>
@@ -12,11 +35,14 @@ export default function App() {
           <ProductItem
             id={product.id}
             nombre={product.nombre}
-            cantidad={product.cantidad}
+            cantidadInicial={product.cantidadInicial}
             cantidadVendida={product.cantidadVendida}
             precio={product.precio}
+            onAgregar={() => agregarStock(product.id)}
+            onQuitar={() => quitarStock(product.id)}
           />
-        ))}
+        )
+        )};
       </View>
     </View>
   );
@@ -45,9 +71,4 @@ const styles = StyleSheet.create({
   
 });
 
-const products = [
-  {id : 1, nombre : "Delantal Black Sublimado con imâgenes de Mascotas.", cantidad : 20 , cantidadVendida: 10, precio : 28000}, 
-  {id : 2, nombre : "Delantal Colours Sublimado con imàgenes de Mascotas.", cantidad : 20 , cantidadVendida: 5, precio : 28000}, 
-  {id : 3, nombre : "Delantal Colours Sublimado con imàgenes de Mascotas.", cantidad : 10 , cantidadVendida: 5, precio : 20000}, 
-  {id : 4, nombre : "Delantal Cordura estampada impermeable con bolsillo con cierre", cantidad : 10 , cantidadVendida: 5, precio : 24000}, 
-]
+

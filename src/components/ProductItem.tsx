@@ -1,20 +1,26 @@
+import { useState } from "react";
 import {StyleSheet, View, Text} from "react-native"; 
 
 type ProductItemProps = {
     id : number,
     nombre : string; 
-    cantidad: number; 
+    cantidadInicial: number; 
     cantidadVendida: number;
     precio : number;
+    onAgregar : () => void; 
+    onQuitar : () => void; 
 }
 
-export function ProductItem({nombre, cantidad, cantidadVendida, precio} : ProductItemProps) {
+export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, onAgregar, onQuitar} : ProductItemProps) {
+    const disableQuitar = cantidadInicial === 0; 
     return (
         <View style = {styles.container}>
-            <Text>{nombre}</Text>
-            <Text>{cantidad}</Text>
-            <Text>{cantidadVendida}</Text>
-            <Text>${precio}</Text>
+            <Text style = {styles.product}>{nombre}</Text>
+            <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" :cantidadInicial}</Text>
+            <Text style = {styles.cantidadVendida}>{cantidadVendida}</Text>
+            <Text style = {styles.precio}>${precio}</Text>
+            <Text onPress={onAgregar}>+ Agregar</Text>
+            <Text onPress={disableQuitar ? undefined : onQuitar}>- Quitar</Text>
         </View>
     )
 }
@@ -29,7 +35,7 @@ const styles = StyleSheet.create ({
         fontSize : 16
     }, 
     cantidad : {
-        color : "gray"
+        color :  "gray"
     },
     cantidadVendida: {
         color: "green"
@@ -37,4 +43,7 @@ const styles = StyleSheet.create ({
     precio: {
         fontWeight: "bold"
     }, 
+    cantidad0 : {
+        color: "red"
+    }
 });
