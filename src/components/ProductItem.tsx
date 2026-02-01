@@ -2,7 +2,7 @@ import { useState } from "react";
 import {StyleSheet, View, Text} from "react-native"; 
 
 type ProductItemProps = {
-    id : number,
+    key : number,
     nombre : string; 
     cantidadInicial: number; 
     cantidadVendida: number;
@@ -19,8 +19,8 @@ export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, o
             <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" :cantidadInicial}</Text>
             <Text style = {styles.cantidadVendida}>{cantidadVendida}</Text>
             <Text style = {styles.precio}>${precio}</Text>
-            <Text onPress={onAgregar}>+ Agregar</Text>
-            <Text onPress={disableQuitar ? undefined : onQuitar}>- Quitar</Text>
+            <Text onPress={onAgregar} > {"+Agregar"}</Text>
+            <Text onPress={disableQuitar ? undefined : onQuitar} > {"-Quitar"}</Text>
         </View>
     )
 }
