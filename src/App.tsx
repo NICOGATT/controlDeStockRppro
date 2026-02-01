@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import {ProductItem} from "./components/ProductItem"; 
 import { useState } from 'react';
 import {Product} from "./types/Product"; 
+import { useEffect} from 'react';
+import { loadProducts, saveProducts } from './storage/productsStorage';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([
@@ -11,6 +13,20 @@ export default function App() {
     {id : 3, nombre : "Delantal Cordura lisa", cantidadInicial: 10, cantidadVendida : 5, precio : 20000}, 
     {id : 4, nombre : "Delantal Cordura estampada", cantidadInicial: 10, cantidadVendida : 5, precio : 24000}, 
   ])
+  useEffect(() => {
+    async function init() {
+      const storedProducts = await loadProducts(); 
+      if(storedProducts) {
+        setProducts(storedProducts);
+      }
+    }
+    init()
+  }, []);
+
+  useEffect(() => {
+    saveProducts(products);
+  },[products]);
+
   function agregarStock(id : number) {
     setProducts(products => 
       products.map(product => 
@@ -33,7 +49,7 @@ export default function App() {
       <View style = {styles.productos}>
         {products.map(product => (
           <ProductItem
-            id={product.id}
+            key={product.id}
             nombre={product.nombre}
             cantidadInicial={product.cantidadInicial}
             cantidadVendida={product.cantidadVendida}
