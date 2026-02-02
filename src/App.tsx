@@ -5,6 +5,8 @@ import { useState } from 'react';
 import {Product} from "./types/Product"; 
 import { useEffect} from 'react';
 import { loadProducts, saveProducts } from './storage/productsStorage';
+import { Movement } from './types/Movement';
+import { loadMovements, saveMovements } from './storage/movementStorage';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([
@@ -13,19 +15,30 @@ export default function App() {
     {id : 3, nombre : "Delantal Cordura lisa", cantidadInicial: 10, cantidadVendida : 5, precio : 20000}, 
     {id : 4, nombre : "Delantal Cordura estampada", cantidadInicial: 10, cantidadVendida : 5, precio : 24000}, 
   ])
+
+  const [hydrated, setHydrated] = useState(false); 
+
+  const [movements, setMovements] = useState<Movement[]>([])
+
   useEffect(() => {
     async function init() {
       const storedProducts = await loadProducts(); 
-      if(storedProducts) {
-        setProducts(storedProducts);
-      }
+      if(storedProducts) setProducts(storedProducts);
+      const storedMovements = await loadMovements(); 
+      if(storedMovements) setMovements(storedMovements); 
+      setHydrated(true); 
     }
     init()
   }, []);
 
   useEffect(() => {
+    if(!hydrated) return; 
     saveProducts(products);
-  },[products]);
+  },[products, hydrated]);
+
+  useEffect(() => {
+    saveMovements(movements)
+  },[movements]); 
 
   function agregarStock(id : number) {
     setProducts(products => 
@@ -41,6 +54,23 @@ export default function App() {
         product.id === id && product.cantidadInicial > 0 ? {...product, cantidadInicial : product.cantidadInicial - 1} : product
       )
     )
+  }
+
+  function createMovement (params: {
+    productId: number; 
+    productName: string;
+    type: "ENTRADA" | "SALIDA";  
+    cantidad : number
+  }) {
+    const movement : Movement = {
+      id: `${Date.now()}-${Math.random()}`, 
+      productId : params.productId, 
+      productName : params.productName, 
+      type : params.type, 
+      cantidad: params.cantidad,
+      createAt: new Date().toISOString()
+    };
+    setMovements((prev) => [movement, ...prev]); // Lo mas nuevo arriba
   }
   return (
     <View style = {styles.container}>
