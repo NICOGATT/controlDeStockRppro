@@ -1,5 +1,5 @@
 import { useState } from "react";
-import {StyleSheet, View, Text} from "react-native"; 
+import {StyleSheet, View, Text, TouchableOpacity} from "react-native"; 
 
 type ProductItemProps = {
     key : number,
@@ -15,12 +15,21 @@ export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, o
     const disableQuitar = cantidadInicial === 0; 
     return (
         <View style = {styles.container}>
-            <Text style = {styles.product}>{nombre}</Text>
-            <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" :cantidadInicial}</Text>
-            <Text style = {styles.cantidadVendida}>{cantidadVendida}</Text>
+            <Text style = {styles.product}>{`${nombre}`}</Text>
+            <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" : `${cantidadInicial} unidades`}</Text>
+            <Text style = {styles.cantidadVendida}>cantidad vendida: {cantidadVendida}</Text>
             <Text style = {styles.precio}>${precio}</Text>
-            <Text onPress={onAgregar} > {"+Agregar"}</Text>
-            <Text onPress={disableQuitar ? undefined : onQuitar} > {"-Quitar"}</Text>
+            {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
+            <TouchableOpacity onPress={onAgregar} style = {styles.boton}>
+                <Text style = {styles.textButton}>+Agregar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+                onPress={onQuitar}
+                disabled={disableQuitar}
+                style={[styles.boton, disableQuitar && styles.botonDisabled]}
+            >
+                <Text style ={styles.textButton}>-Quitar</Text>
+            </TouchableOpacity>
         </View>
     )
 }
@@ -45,5 +54,21 @@ const styles = StyleSheet.create ({
     }, 
     cantidad0 : {
         color: "red"
+    }, 
+    boton:{
+        padding: 5,
+        width : 100, 
+        borderRadius : 10,
+        backgroundColor : "blue",
+        marginBottom : 10,
+    }, 
+    botonDisabled: {
+        padding : 5,
+        width : 100, 
+        borderRadius : 10, 
+        backgroundColor : "red"
+    }, 
+    textButton:{
+        color : "white"
     }
 });
