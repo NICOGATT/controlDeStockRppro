@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ScrollView, Alert, Button, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert, Button, Platform, TextInput, Pressable } from 'react-native';
 import {ProductItem} from "./components/ProductItem"; 
 import { useState } from 'react';
 import {Product} from "./types/Product"; 
@@ -9,16 +9,17 @@ import { Movement } from './types/Movement';
 import { deleteMovement, loadMovements, saveMovements } from './storage/movementStorage';
 
 export default function App() {
-  const [products, setProducts] = useState<Product[]>([
-    {id : 1, nombre : "Delantal Black", cantidadInicial: 20, cantidadVendida : 10, precio : 28000}, 
-    {id : 2, nombre : "Delantal Colurs", cantidadInicial: 20, cantidadVendida : 10, precio : 28000}, 
-    {id : 3, nombre : "Delantal Cordura lisa", cantidadInicial: 10, cantidadVendida : 5, precio : 20000}, 
-    {id : 4, nombre : "Delantal Cordura estampada", cantidadInicial: 10, cantidadVendida : 5, precio : 24000}, 
-  ])
+  const [products, setProducts] = useState<Product[]>([])
 
   const [hydrated, setHydrated] = useState(false); 
 
   const [movements, setMovements] = useState<Movement[]>([])
+
+  const [nombre, setNombre] = useState(""); 
+
+  const [stock, setStock] = useState(""); 
+  
+  const [precio, setPrecio] = useState(""); 
 
   useEffect(() => {
     async function init() {
@@ -114,6 +115,7 @@ export default function App() {
       Alert.alert("✅", "Historial borrado")
     }
   }
+
   function quitarMovimientos() {
     if(Platform.OS === "web") {
       const ok = window.confirm(
@@ -136,50 +138,114 @@ export default function App() {
     );
   }
 
+  function handleAddProduct() {
+    if(!nombre.trim()){
+      alert("El nombre es obligatorio")
+      return;     
+    }
+
+    const stockNumber = Number(stock)
+    const precioNumber= Number(precio)
+
+    if (isNaN(stockNumber)  || isNaN(precioNumber)) {
+      alert("Stock y precio deben ser numeros validos")
+      return;
+    }
+    const newProduct : Product = {
+      id : Date.now(), 
+      nombre, 
+      cantidadInicial : stockNumber,
+      cantidadVendida : 0, 
+      precio : precioNumber
+    }
+
+    setProducts((prev) => [newProduct, ...prev]); 
+    //Limpiar el formulario
+    setNombre(""); 
+    setStock(""); 
+    setPrecio("");
+  }
+
+  function borrarProducto(id:number) {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function desahibilitarButton()  : boolean{
+    return nombre.trim() === "" && stock.trim() === "" || precio.trim() === "";
+  }
+
+
   return (
     <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
       <View style = {styles.container}>
         <Text style = {styles.title}>Control de Stock RPPRO</Text>
+        <Text style = {styles.subtitle}>Productos</Text>
+        <Text style = {styles.subtitle}>Agregar producto</Text>
+        <View style = {styles.form}>
+          <TextInput
+            placeholder='Nombre del producto'
+            value={nombre}
+            onChangeText={setNombre}
+            autoFocus
+            style = {styles.input}
+          />
+          <TextInput
+            placeholder='Stock inicial'
+            value={stock}
+            onChangeText={setStock}
+            style = {styles.input}
+          />
+          <TextInput
+            placeholder='Precio'
+            value={precio}
+            onChangeText={setPrecio}
+            keyboardType='numeric'
+            style = {styles.input}
+          />
+          <Pressable style ={styles.button} onPress={handleAddProduct} disabled={desahibilitarButton()}>
+            <Text style = {styles.buttonText}>Guardar producto</Text>
+          </Pressable>
+        </View>
+
+        {products.length > 0 ? (
+          <View style = {styles.productos}>
+            {products.map(product => (
+              <ProductItem
+                key={product.id}
+                nombre={product.nombre}
+                cantidadInicial={product.cantidadInicial}
+                cantidadVendida={product.cantidadVendida}
+                precio={product.precio}
+                onAgregar={() => agregarStock(product.id)}
+                onQuitar={() => quitarStock(product.id)}
+                onDelete={() => borrarProducto(product.id)}
+              />
+            )
+            )}
+          </View>
+        ) : (
+          <Text style = {styles.emptyText}> No hay productos todavia</Text>
+        )}
         <View style = {styles.deleteContainer}>
-          <Text style = {styles.subtitle}>Productos</Text>
-          
+          <Text style = {styles.movimientosTitle}>Movimientos</Text>
+          <Pressable style = {styles.deleteButton} onPress={quitarMovimientos}>
+            <Text style = {styles.deleteButtonText}>🗑️ Borrar todo</Text>
+          </Pressable>
         </View>
-        
-        <View style = {styles.productos}>
-          {products.map(product => (
-            <ProductItem
-              key={product.id}
-              nombre={product.nombre}
-              cantidadInicial={product.cantidadInicial}
-              cantidadVendida={product.cantidadVendida}
-              precio={product.precio}
-              onAgregar={() => agregarStock(product.id)}
-              onQuitar={() => quitarStock(product.id)}
-            />
-          )
-          )};
-        </View>
-        <Text style = {styles.movimientos}>Movimientos</Text>
-        <Button title= "Borrar todo" onPress ={quitarMovimientos}/>
-          {movements.map((m) => (
-            <Text key={m.id}>
-              {m.type} - {m.productName} (x{m.cantidad})
-            </Text>
-          ))}
         <View style = {styles.movimientos}>
           {movements.length === 0 ? (
-          <Text style={styles.movimientoEmpty}>No hay movimientos todavía</Text>
-        ) : (
+            <Text style={styles.movimientoEmpty}>No hay movimientos todavía</Text>
+          ) : (
           movements.slice(0, 20).map((m) => (
-            <View key={m.id} style={styles.movimientoItem}>
-              <Text style={[styles.movimientoType, { color: m.type === "ENTRADA" ? "green" : "red" }]}>
-                {m.type}
-              </Text>
-              <Text>{m.productName} (x{m.cantidad})</Text>
-              <Text style={styles.movimientoDate}>{new Date(m.createAt).toLocaleString()}</Text>
-            </View>
-          ))
-        )}
+              <View key={m.id} style={styles.movimientoItem}>
+                < Text style={[styles.movimientoType, { color: m.type === "ENTRADA" ? "green" : "red" }]}>
+                    {m.type}
+                  </Text>
+                  <Text>{m.productName} (x{m.cantidad})</Text>
+                  <Text style={styles.movimientoDate}>{new Date(m.createAt).toLocaleString()}</Text>
+              </View>
+            ))
+          )}
         </View>
       </View>
     </ScrollView>
@@ -189,19 +255,19 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "black",
+    backgroundColor: "#20a4f3",
   },
   content: {
     padding: 20,
   },
   title: {
     fontSize: 32,
-    color: "white",
+    color: "#f6f7f8",
     textDecorationLine: "underline",
   },
   subtitle: {
     fontSize: 18,
-    color: "white",
+    color: "#f6f7f8",
     marginTop: 10,
     marginBottom: 10,
   },
@@ -212,12 +278,11 @@ const styles = StyleSheet.create({
     width: "100%", // CLAVE
   },
   movimientosTitle: {
-    color: "white",
+    color: "#f6f7f8",
     marginTop: 20,
     fontSize: 18,
   },
   movimientos: {
-    backgroundColor: "white",
     borderRadius: 8,
     overflow: "hidden",
     width: "100%", // CLAVE
@@ -227,6 +292,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderBottomWidth: 1,
     borderColor: "#ddd",
+    backgroundColor : "#f6f7f8"
   },
   movimientoType: {
     fontWeight: "bold",
@@ -237,12 +303,53 @@ const styles = StyleSheet.create({
   },
   movimientoEmpty: {
     padding: 10,
-    color: "gray",
+    color: "#f6f7f8",
+    fontSize : 20,
   },
   deleteContainer: {
     flex : 1, 
-    justifyContent : "space-between",
-    borderWidth : 2
+    justifyContent : "space-around",
+    flexDirection : "row",  
+  }, 
+  form : {
+    backgroundColor : "#f6f7f8",
+    padding : 12, 
+    borderRadius : 8, 
+    marginBottom : 20  
+  }, 
+  input : {
+    borderWidth : 1,
+    borderColor : "#ccc", 
+    padding : 8, 
+    marginBottom : 10, 
+    borderRadius : 4
+  }, 
+  button : {
+    backgroundColor : "#2ec4b6", 
+    padding : 12, 
+    borderRadius : 6, 
+    alignItems : "center"
+  }, 
+  buttonText : {
+    color : "white", 
+    fontWeight : "bold"
+  }, 
+  emptyText : {
+    color : "#f6f7f8", 
+    fontStyle : "italic",
+    fontSize : 20
+  }, 
+  deleteButton : {
+    backgroundColor : "#011627", 
+    justifyContent : "center",
+    alignItems : "center",
+    padding : 10,
+    borderRadius : 8,
+    marginTop : 10  
+  }, 
+  deleteButtonText : {
+    color : "white",
+    fontWeight : "bold"
   }
 });
 
