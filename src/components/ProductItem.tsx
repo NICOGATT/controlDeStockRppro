@@ -1,5 +1,5 @@
 import { useState } from "react";
-import {StyleSheet, View, Text, TouchableOpacity} from "react-native"; 
+import {StyleSheet, View, Text, TouchableOpacity, Pressable} from "react-native"; 
 
 type ProductItemProps = {
     key : number,
@@ -9,9 +9,10 @@ type ProductItemProps = {
     precio : number;
     onAgregar : () => void; 
     onQuitar : () => void; 
+    onDelete : () => void;
 }
 
-export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, onAgregar, onQuitar} : ProductItemProps) {
+export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, onAgregar, onQuitar, onDelete} : ProductItemProps) {
     const disableQuitar = cantidadInicial === 0; 
     return (
         <View style = {styles.container}>
@@ -30,6 +31,9 @@ export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, o
             >
                 <Text style ={styles.textButton}>-Quitar</Text>
             </TouchableOpacity>
+            <Pressable onPress = {onDelete}>
+                <Text > 🗑️ Eliminar</Text>
+            </Pressable>
         </View>
     )
 }
