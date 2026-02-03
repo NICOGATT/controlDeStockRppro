@@ -20,3 +20,14 @@ export async function loadMovements() : Promise<Movement[] | null> {
         return null; 
     }
 }
+
+export async function deleteMovement() : Promise<boolean> {
+    try {
+        await AsyncStorage.removeItem(MOVEMENTS_KEY); 
+        console.log("Movimientos eliminados correctamente")
+        return true;
+    } catch (error) {
+        console.error("Error eliminando los movimientos", error)
+        return false; 
+    }
+}

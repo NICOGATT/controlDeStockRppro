@@ -1,12 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert, Button, Platform } from 'react-native';
 import {ProductItem} from "./components/ProductItem"; 
 import { useState } from 'react';
 import {Product} from "./types/Product"; 
 import { useEffect} from 'react';
 import { loadProducts, saveProducts } from './storage/productsStorage';
 import { Movement } from './types/Movement';
-import { loadMovements, saveMovements } from './storage/movementStorage';
+import { deleteMovement, loadMovements, saveMovements } from './storage/movementStorage';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([
@@ -93,11 +93,58 @@ export default function App() {
     )
   }
 
+  async function borrarTodoMovimientos(setMovements : any) {
+    const success = await deleteMovement(); 
+    if(success) {
+      setMovements([]); 
+      decisionDePlataforma();
+    } else {
+      if(Platform.OS === "web") {
+        alert("❌ No se pudo borrar");
+      } else {
+        Alert.alert("❌", "No se pudo borrar");
+      };
+    };
+  };
+
+  function decisionDePlataforma() {
+    if(Platform.OS === "web") {
+      alert("✅ Historial borrado");
+    } else {
+      Alert.alert("✅", "Historial borrado")
+    }
+  }
+  function quitarMovimientos() {
+    if(Platform.OS === "web") {
+      const ok = window.confirm(
+        "¿Borrar todos los movimientos? Esto no afectara al stock actual"
+      ); 
+      if(ok) borrarTodoMovimientos(setMovements); 
+      return;
+    }
+    Alert.alert(
+      "Confirmar", 
+      "¿Borrar todos los movimientos? Esto no afectara el stock actual",
+      [
+        {text : "Cancelar", style : "cancel"},
+        {
+          text : "Borrar todo", 
+          style : "destructive", 
+          onPress : () => borrarTodoMovimientos(setMovements)
+        }
+      ]
+    );
+  }
+
   return (
     <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
       <View style = {styles.container}>
         <Text style = {styles.title}>Control de Stock RPPRO</Text>
-        <Text style = {styles.subtitle}>Productos</Text>
+        <View style = {styles.deleteContainer}>
+          <Text style = {styles.subtitle}>Productos</Text>
+          
+        </View>
+        
         <View style = {styles.productos}>
           {products.map(product => (
             <ProductItem
@@ -113,6 +160,12 @@ export default function App() {
           )};
         </View>
         <Text style = {styles.movimientos}>Movimientos</Text>
+        <Button title= "Borrar todo" onPress ={quitarMovimientos}/>
+          {movements.map((m) => (
+            <Text key={m.id}>
+              {m.type} - {m.productName} (x{m.cantidad})
+            </Text>
+          ))}
         <View style = {styles.movimientos}>
           {movements.length === 0 ? (
           <Text style={styles.movimientoEmpty}>No hay movimientos todavía</Text>
@@ -186,6 +239,11 @@ const styles = StyleSheet.create({
     padding: 10,
     color: "gray",
   },
+  deleteContainer: {
+    flex : 1, 
+    justifyContent : "space-between",
+    borderWidth : 2
+  }
 });
 
 
