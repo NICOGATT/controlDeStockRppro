@@ -21,6 +21,7 @@ export default function App() {
   
   const [precio, setPrecio] = useState(""); 
 
+  {/*Recargamos los productos y los movimientos al iniciar la app*/}
   useEffect(() => {
     async function init() {
       const storedProducts = await loadProducts(); 
@@ -41,6 +42,7 @@ export default function App() {
     saveMovements(movements)
   },[movements]); 
   
+  {/*Creamos los moviemientos*/}
   function createMovement (params: {
     productId: number; 
     productName: string;
@@ -57,6 +59,8 @@ export default function App() {
     };
     setMovements((prev) => [movement, ...prev]); // Lo mas nuevo arriba
   }
+
+  {/*Agregamos stock que vendria ser una entrada del producto*/}
   function agregarStock(id : number) {
     {/*1) Encontramos el producto actual (para saber el nombre)*/}
     const prod = products.find(p => p.id === id); 
@@ -77,6 +81,7 @@ export default function App() {
     })
   }
   
+  {/*Quitamos el stock que vendria ser una salida del producto */}
   function quitarStock(id : number) {
     setProducts((products) => 
       products.map((product) => {
@@ -94,6 +99,7 @@ export default function App() {
     )
   }
 
+  {/*Borramos todos los moviemientos del AsyncStorage */}
   async function borrarTodoMovimientos(setMovements : any) {
     const success = await deleteMovement(); 
     if(success) {
@@ -108,6 +114,7 @@ export default function App() {
     };
   };
 
+  {/*Creamos otra funcion para mayor legibilidad */}
   function decisionDePlataforma() {
     if(Platform.OS === "web") {
       alert("✅ Historial borrado");
@@ -116,6 +123,7 @@ export default function App() {
     }
   }
 
+  {/*Quitamos todos los movimientos del historial y llamamos a la borrarTodosMovimientos(setMovement: any) */}
   function quitarMovimientos() {
     if(Platform.OS === "web") {
       const ok = window.confirm(
@@ -138,6 +146,7 @@ export default function App() {
     );
   }
 
+  {/*Agregamos un producto a mano  */}
   function handleAddProduct() {
     if(!nombre.trim()){
       alert("El nombre es obligatorio")
@@ -166,10 +175,11 @@ export default function App() {
     setPrecio("");
   }
 
+  {/*Se borra un solo producto */}
   function borrarProducto(id:number) {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }
-
+  
   function desahibilitarButton()  : boolean{
     return nombre.trim() === "" && stock.trim() === "" || precio.trim() === "";
   }
@@ -206,7 +216,7 @@ export default function App() {
             <Text style = {styles.buttonText}>Guardar producto</Text>
           </Pressable>
         </View>
-
+        
         {products.length > 0 ? (
           <View style = {styles.productos}>
             {products.map(product => (
