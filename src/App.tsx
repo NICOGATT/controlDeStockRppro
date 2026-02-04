@@ -7,6 +7,12 @@ import { useEffect} from 'react';
 import { loadProducts, saveProducts } from './storage/productsStorage';
 import { Movement } from './types/Movement';
 import { deleteMovement, loadMovements, saveMovements } from './storage/movementStorage';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import MovementsScreens from "./screens/MovementsScreens";
+import AddProductsScreen from "./screens/AddProductsScreen";
+import ProductsScreen from "./screens/ProductsScreen";
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([])
@@ -20,6 +26,8 @@ export default function App() {
   const [stock, setStock] = useState(""); 
   
   const [precio, setPrecio] = useState(""); 
+
+  const Stack = createNativeStackNavigator();
 
   {/*Recargamos los productos y los movimientos al iniciar la app*/}
   useEffect(() => {
@@ -147,8 +155,10 @@ export default function App() {
   }
 
   {/*Agregamos un producto a mano  */}
-  function handleAddProduct() {
-    if(!nombre.trim()){
+  function handleAddProduct(nombre : string, stock: string, precio: string) {
+    console.log("NOMBRE:", JSON.stringify(nombre));
+    const nombreLimpio = nombre.trim(); 
+    if(!nombreLimpio){
       alert("El nombre es obligatorio")
       return;     
     }
@@ -156,13 +166,13 @@ export default function App() {
     const stockNumber = Number(stock)
     const precioNumber= Number(precio)
 
-    if (isNaN(stockNumber)  || isNaN(precioNumber)) {
+    if (Number.isNaN(stockNumber)  || Number.isNaN(precioNumber)) {
       alert("Stock y precio deben ser numeros validos")
       return;
     }
     const newProduct : Product = {
       id : Date.now(), 
-      nombre, 
+      nombre : nombreLimpio, 
       cantidadInicial : stockNumber,
       cantidadVendida : 0, 
       precio : precioNumber
@@ -179,87 +189,50 @@ export default function App() {
   function borrarProducto(id:number) {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }
-  
-  function desahibilitarButton()  : boolean{
-    return nombre.trim() === "" && stock.trim() === "" || precio.trim() === "";
-  }
-
 
   return (
-    <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
-      <View style = {styles.container}>
-        <Text style = {styles.title}>Control de Stock RPPRO</Text>
-        <Text style = {styles.subtitle}>Productos</Text>
-        <Text style = {styles.subtitle}>Agregar producto</Text>
-        <View style = {styles.form}>
-          <TextInput
-            placeholder='Nombre del producto'
-            value={nombre}
-            onChangeText={setNombre}
-            autoFocus
-            style = {styles.input}
-          />
-          <TextInput
-            placeholder='Stock inicial'
-            value={stock}
-            onChangeText={setStock}
-            style = {styles.input}
-          />
-          <TextInput
-            placeholder='Precio'
-            value={precio}
-            onChangeText={setPrecio}
-            keyboardType='numeric'
-            style = {styles.input}
-          />
-          <Pressable style ={styles.button} onPress={handleAddProduct} disabled={desahibilitarButton()}>
-            <Text style = {styles.buttonText}>Guardar producto</Text>
-          </Pressable>
-        </View>
-        
-        {products.length > 0 ? (
-          <View style = {styles.productos}>
-            {products.map(product => (
-              <ProductItem
-                key={product.id}
-                nombre={product.nombre}
-                cantidadInicial={product.cantidadInicial}
-                cantidadVendida={product.cantidadVendida}
-                precio={product.precio}
-                onAgregar={() => agregarStock(product.id)}
-                onQuitar={() => quitarStock(product.id)}
-                onDelete={() => borrarProducto(product.id)}
-              />
-            )
-            )}
-          </View>
-        ) : (
-          <Text style = {styles.emptyText}> No hay productos todavia</Text>
-        )}
-        <View style = {styles.deleteContainer}>
-          <Text style = {styles.movimientosTitle}>Movimientos</Text>
-          <Pressable style = {styles.deleteButton} onPress={quitarMovimientos}>
-            <Text style = {styles.deleteButtonText}>🗑️ Borrar todo</Text>
-          </Pressable>
-        </View>
-        <View style = {styles.movimientos}>
-          {movements.length === 0 ? (
-            <Text style={styles.movimientoEmpty}>No hay movimientos todavía</Text>
-          ) : (
-          movements.slice(0, 20).map((m) => (
-              <View key={m.id} style={styles.movimientoItem}>
-                < Text style={[styles.movimientoType, { color: m.type === "ENTRADA" ? "green" : "red" }]}>
-                    {m.type}
-                  </Text>
-                  <Text>{m.productName} (x{m.cantidad})</Text>
-                  <Text style={styles.movimientoDate}>{new Date(m.createAt).toLocaleString()}</Text>
-              </View>
-            ))
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen
+          name = "Productos"
+          options = {{title : "Productos"}}
+        >
+          {props => (
+            <ProductsScreen
+              {...props}
+              products = {products}
+              agregarStock = {agregarStock}
+              quitarStock = {quitarStock}
+              borrarProducto = {borrarProducto}
+            />
           )}
-        </View>
-      </View>
-    </ScrollView>
-  );
+        </Stack.Screen>
+        <Stack.Screen
+          name = "AddProduct"
+          options = {{title : "Agregar producto"}}
+        >
+          {props =>(
+            <AddProductsScreen
+              {...props}
+              onAddProduct = {handleAddProduct}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name = "Movements"
+          options = {{title : "Movimientos"}}
+        >
+          {props => (
+            <MovementsScreens
+              {...props}
+              movements = {movements}
+              onClear = {quitarMovimientos}
+            />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </NavigationContainer>
+  )
 }
 
 const styles = StyleSheet.create({
