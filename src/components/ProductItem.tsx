@@ -4,20 +4,20 @@ import {StyleSheet, View, Text, TouchableOpacity, Pressable} from "react-native"
 type ProductItemProps = {
     nombre : string; 
     cantidadInicial: number; 
-    cantidadVendida: number;
+    stockDeseado: number;
     precio : number;
     onAgregar : () => void; 
     onQuitar : () => void; 
     onDelete : () => void;
 }
 
-export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, onAgregar, onQuitar, onDelete} : ProductItemProps) {
+export function ProductItem({nombre, cantidadInicial, stockDeseado, precio, onAgregar, onQuitar, onDelete} : ProductItemProps) {
     const disableQuitar = cantidadInicial === 0; 
     return (
-        <View style = {styles.container}>
+        <View>
             <Text style = {styles.product}>{`${nombre}`}</Text>
             <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" : `${cantidadInicial} unidades`}</Text>
-            <Text style = {styles.cantidadVendida}>cantidad vendida: {cantidadVendida}</Text>
+            <Text style = {styles.cantidadVendida}>Stock deseado :  {stockDeseado}</Text>
             <Text style = {styles.precio}>${precio}</Text>
             {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
             <TouchableOpacity onPress={onAgregar} style = {styles.boton}>
@@ -38,11 +38,6 @@ export function ProductItem({nombre, cantidadInicial, cantidadVendida, precio, o
 }
 
 const styles = StyleSheet.create ({
-    container : {
-        padding : 12, 
-        borderBottomWidth : 1,
-        backgroundColor : "white"
-    },
     product : {
         fontSize : 16
     }, 
