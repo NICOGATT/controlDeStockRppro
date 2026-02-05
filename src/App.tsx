@@ -195,7 +195,7 @@ export default function App() {
       <Stack.Navigator>
         <Stack.Screen
           name = "Productos"
-          options = {{title : "Productos"}}
+          options = {{headerShown : false}}
         >
           {props => (
             <ProductsScreen
