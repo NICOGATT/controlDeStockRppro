@@ -2,6 +2,6 @@ export type Product = {
     id : number, 
     nombre : string, 
     cantidadInicial: number, 
-    cantidadVendida : number,
+    stockDeseado : number,
     precio : number,
 }
