@@ -13,6 +13,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MovementsScreens from "./screens/MovementsScreens";
 import AddProductsScreen from "./screens/AddProductsScreen";
 import ProductsScreen from "./screens/ProductsScreen";
+import EditProductScreen from "./screens/EditProductScreen";
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([])
@@ -190,6 +191,30 @@ export default function App() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }
 
+  {/*Actualizamos un producto */}
+  function updateProduct(id : number, changes : {nombre : string, cantidadInicial : number, precio : number}) {
+    {/*Validacion minima */}
+    if(!changes.nombre.trim()){
+      alert("El nombre es obligatorio");
+      return false;     
+    }
+
+    if(Number.isNaN(changes.cantidadInicial) || changes.cantidadInicial < 0) {
+      alert("Stock debe ser un numero valido");
+      return false;
+    }
+    
+    if(Number.isNaN(changes.precio) || changes.precio < 0) {
+      alert("Precio debe ser un numero valido");
+      return false;
+    }
+
+    setProducts((prev) => 
+      prev.map((p) => (p.id === id ? {...p, ...changes} : p)
+    ));
+    return true;
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
@@ -227,6 +252,17 @@ export default function App() {
               {...props}
               movements = {movements}
               onClear = {quitarMovimientos}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen 
+          name= "EditProduct"
+          options = {{title : "Editar producto"}}
+        >
+          {props => (
+            <EditProductScreen
+              {...props}
+              onUpdateProduct = {updateProduct}
             />
           )}
         </Stack.Screen>
