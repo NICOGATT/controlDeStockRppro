@@ -2,7 +2,6 @@ import { useState } from "react";
 import {StyleSheet, View, Text, TouchableOpacity, Pressable} from "react-native"; 
 
 type ProductItemProps = {
-    key : number,
     nombre : string; 
     cantidadInicial: number; 
     cantidadVendida: number;
