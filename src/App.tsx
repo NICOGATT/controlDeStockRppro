@@ -14,6 +14,9 @@ import MovementsScreens from "./screens/MovementsScreens";
 import AddProductsScreen from "./screens/AddProductsScreen";
 import ProductsScreen from "./screens/ProductsScreen";
 import EditProductScreen from "./screens/EditProductScreen";
+import { PrefacturaScreen } from './screens/PrefacturaScreen';
+import BarcodeScanScreen from './components/BarcodeScanScreen';
+import ScanScreen from './screens/ScanScreen';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([])
@@ -27,6 +30,8 @@ export default function App() {
   const [stock, setStock] = useState(""); 
   
   const [precio, setPrecio] = useState(""); 
+
+  const [stockDeseado, setStockDeseado] = useState("");
 
   const Stack = createNativeStackNavigator();
 
@@ -156,7 +161,7 @@ export default function App() {
   }
 
   {/*Agregamos un producto a mano  */}
-  function handleAddProduct(nombre : string, stock: string, precio: string) {
+  function handleAddProduct(nombre : string, stock: string, stockDeseado: string, precio: string) {
     console.log("NOMBRE:", JSON.stringify(nombre));
     const nombreLimpio = nombre.trim(); 
     if(!nombreLimpio){
@@ -165,9 +170,10 @@ export default function App() {
     }
 
     const stockNumber = Number(stock)
+    const stockDeseadoNumber = Number(stockDeseado)
     const precioNumber= Number(precio)
 
-    if (Number.isNaN(stockNumber)  || Number.isNaN(precioNumber)) {
+    if (Number.isNaN(stockNumber)  || Number.isNaN(precioNumber) || Number.isNaN(stockDeseadoNumber)) {
       alert("Stock y precio deben ser numeros validos")
       return;
     }
@@ -175,14 +181,15 @@ export default function App() {
       id : Date.now(), 
       nombre : nombreLimpio, 
       cantidadInicial : stockNumber,
-      cantidadVendida : 0, 
-      precio : precioNumber
+      stockDeseado : stockDeseadoNumber, 
+      precio : precioNumber, 
     }
 
     setProducts((prev) => [newProduct, ...prev]); 
     //Limpiar el formulario
     setNombre(""); 
     setStock(""); 
+    setStockDeseado("");
     setPrecio("");
   }
 
@@ -193,8 +200,9 @@ export default function App() {
 
   {/*Actualizamos un producto */}
   function updateProduct(id : number, changes : {nombre : string, cantidadInicial : number, precio : number}) {
+    const nombreLimpio = changes.nombre.trim();
     {/*Validacion minima */}
-    if(!changes.nombre.trim()){
+    if(!nombreLimpio){
       alert("El nombre es obligatorio");
       return false;     
     }
@@ -209,9 +217,28 @@ export default function App() {
       return false;
     }
 
+    {/*Producto actual */}
+    const current = products.find((p) => p.id === id);
+    if(!current) return false; 
+
+    const oldStock = current.cantidadInicial; 
+    const newStock = changes.cantidadInicial;
+    const diff = newStock - oldStock;
+
+
     setProducts((prev) => 
-      prev.map((p) => (p.id === id ? {...p, ...changes} : p)
+      prev.map((p) => (p.id === id ? {...p, nombre : nombreLimpio, cantidadInicial : newStock, precio : changes.precio} : p)
     ));
+
+    {/*Crear movimiento automatico */}
+    if(diff !== 0) {
+      createMovement({
+        productId : current.id, 
+        productName : current.nombre, 
+        type : diff > 0 ? "ENTRADA" : "SALIDA", 
+        cantidad : Math.abs(diff)
+      })
+    }
     return true;
   }
 
@@ -266,6 +293,16 @@ export default function App() {
             />
           )}
         </Stack.Screen>
+        <Stack.Screen
+          name='Prefactura'
+          component={PrefacturaScreen}
+          options={{title : "Prefactura"}}
+        />
+        <Stack.Screen
+          name = "BarcodeScanScreen"
+          component={ScanScreen}
+          options={{title : "Escaner"}}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   )

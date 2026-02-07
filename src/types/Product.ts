@@ -4,4 +4,5 @@ export type Product = {
     cantidadInicial: number, 
     stockDeseado : number,
     precio : number,
+    code? : string,
 }
