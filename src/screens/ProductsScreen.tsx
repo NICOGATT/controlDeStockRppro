@@ -1,5 +1,9 @@
 import {View, Text, Pressable, StyleSheet, ScrollView, Platform} from "react-native"; 
 import { ProductItem } from "../components/ProductItem"; 
+import { useNavigation } from "@react-navigation/native";
+import { Product } from "../types/Product";
+import { useState } from "react";
+import GenerarCodigoButton from "../components/BarcodeScanScreen";
 
 export default function ProductsScreen({
     navigation, 
@@ -8,6 +12,12 @@ export default function ProductsScreen({
     quitarStock, 
     borrarProducto
 } : any) {
+    const [showQR, setShowQR] = useState(false);
+    const [selectedProduct, setSelectProduct] = useState<Product | null>(null); 
+    function onGenerarQr(producto : Product) {
+        setSelectProduct(producto); 
+        setShowQR(true);
+    }
     return (
         <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
             <View style = {styles.container}>
@@ -20,6 +30,12 @@ export default function ProductsScreen({
 
                         <Pressable onPress = {() => navigation.navigate("Movements")}>
                             <Text>📜 Ver Movimientos</Text>
+                        </Pressable>
+                        <Pressable onPress = {() => navigation.navigate("PedidosScreen", {pedidoId : "pedido - 123"})}> 
+                            <Text>Armar pedido</Text>
+                        </Pressable>
+                        <Pressable onPress={() => navigation.navigate("BarcodeScanScreen", {products})}>
+                            <Text>Escanear QR</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -41,12 +57,23 @@ export default function ProductsScreen({
                                 onQuitar = {() => quitarStock (p.id)}
                                 onDelete = {() => borrarProducto (p.id)}
                             />
-                            <Pressable onPress={() => navigation.navigate("EditProduct", {product: p})}>
-                                <Text>✏️ Editar</Text>
-                            </Pressable>
+                            <View>
+                                <Pressable onPress={() => navigation.navigate("EditProduct", {product: p})}>
+                                    <Text>✏️ Editar</Text>
+                                </Pressable>
+                                <Pressable onPress ={() => onGenerarQr(p)}>
+                                    <Text>Generar codigo de barra</Text>
+                                </Pressable>
+
+                            </View>
                         </View>
                     )
-                )}     
+                )}
+                <GenerarCodigoButton 
+                    visible = {showQR}
+                    producto={selectedProduct}
+                    onClose={() => setShowQR(false)}
+                />
             </View>
         </ScrollView>
     )
@@ -79,7 +106,7 @@ const styles = StyleSheet.create({
         marginTop : Platform.OS === "web" ? 0 : 30
     }, 
     buttonsContainer : {
-        flexDirection : "row",
+        flexDirection : Platform.OS === "web" ? "row" : "column",
         gap : 12
     }, 
     subtitle : {

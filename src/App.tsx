@@ -17,6 +17,7 @@ import EditProductScreen from "./screens/EditProductScreen";
 import { PrefacturaScreen } from './screens/PrefacturaScreen';
 import BarcodeScanScreen from './components/BarcodeScanScreen';
 import ScanScreen from './screens/ScanScreen';
+import ArmarPedidoScreen from './screens/ArmarPedidoScreen';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([])
@@ -302,6 +303,11 @@ export default function App() {
           name = "BarcodeScanScreen"
           component={ScanScreen}
           options={{title : "Escaner"}}
+        />
+        <Stack.Screen
+          name='PedidosScreen'
+          component={ArmarPedidoScreen}
+          options={{title : "Armar pedido"}}
         />
       </Stack.Navigator>
     </NavigationContainer>
