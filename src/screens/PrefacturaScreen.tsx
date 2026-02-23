@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from "react"; 
 import { ActivityIndicator, Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
-import { confirmarPedido, getPrefactura } from "../types/api";
 import { Prefactura } from "../types/Prefactura";
 
 const formatMoney = (n: number) => 

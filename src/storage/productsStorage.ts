@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Product } from "../types/Product";
+import { Product } from "../api/Product";
 
 const PRODUCTS_KEY = "products"; 
 

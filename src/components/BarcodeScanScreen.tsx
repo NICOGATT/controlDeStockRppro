@@ -1,32 +1,138 @@
-import React, { useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import React, { useRef } from "react";
+import { Modal, Text, TouchableOpacity, View, Alert } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { StockProducto } from "../types/StockProducto";
 
-{/* */}
+type Props = {
+  visible : boolean, 
+  stockItem : StockProducto
+}
+
 export default function GenerarCodigoButton({
-    visible, 
-    producto, 
-    onClose
-} : {
-    visible : boolean; 
-    producto : {id : number; nombre : string} | null; 
-    onClose : () => void
+  visible,
+  stockItem,
+  onClose,
+}: {
+  visible: boolean;
+  stockItem : StockProducto | null;
+  onClose: () => void;
 }) {
-    if(!producto) return null; 
+  const qrRef = useRef<any>(null);
+  if (!stockItem) return null;
+  if (!visible) return null; 
 
-    const payload = `rppro:product:${producto.id}`
-    
-    return (
-        <Modal visible = {visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style = {{flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent : "center", alignItems : "center"}}>
-                <View style = {{backgroundColor : "white", padding : 20, borderRadius : 12, width : 300, alignItems : "center"}}>
-                    <Text style = {{fontWeight : "800", marginBottom : 10}}>{producto.nombre}</Text>
-                    <QRCode value = {payload} size={220}/>
-                    <TouchableOpacity onPress={onClose} style = {{marginTop : 14}}>
-                        <Text style = {{fontWeight : "800"}}>Cerrar</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    )
+  const payload = `rppro:stock:${stockItem.productoId}:${stockItem.talleId}:${stockItem.colorId}`;
+
+  const onDownloadPdf = async () => {
+    try {
+      if (!qrRef.current?.toDataURL) {
+        Alert.alert("Error", "No pude obtener la imagen del QR.");
+        return;
+      }
+
+      const qrDataUrl: string = await new Promise((resolve) => {
+        qrRef.current.toDataURL((base64: string) => {
+          resolve(`data:image/png;base64,${base64}`);
+        });
+      });
+
+      const html = `
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <style>
+              body { font-family: Arial, sans-serif; padding: 16px; }
+              .card { width: 320px; border: 1px solid #ddd; border-radius: 12px; padding: 16px; }
+              .title { font-size: 18px; font-weight: 700; margin: 0 0 8px 0; }
+              .meta { margin: 0; line-height: 1.4; }
+              .qr { margin-top: 12px; text-align: center; }
+              .id { margin-top: 10px; font-size: 12px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <p class="title">${stockItem.producto?.nombre}</p>
+              <p class="meta"><b>Precio:</b> $${stockItem.producto?.precio}>
+              <p class="meta"><b>Stock:</b> ${stockItem.stock}</p>
+              <div class="qr">
+                <img src="${qrDataUrl}" width="220" height="220" />
+              </div>
+              <p class="id">ID: ${stockItem.productoId}</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+
+      // Si compartir no está, abrí impresión (suele dejar guardar PDF)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        await Print.printAsync({ uri });
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "No se pudo generar el PDF");
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: "white",
+            padding: 20,
+            borderRadius: 12,
+            width: 300,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ fontWeight: "800", marginBottom: 10 }}>
+            {stockItem.producto?.nombre}
+          </Text>
+
+          <QRCode
+            value={payload}
+            size={220}
+            getRef={(c) => (qrRef.current = c)}
+          />
+
+          <TouchableOpacity
+            onPress={onDownloadPdf}
+            style={{
+              marginTop: 14,
+              backgroundColor: "#111",
+              padding: 12,
+              borderRadius: 10,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "800" }}>
+              Descargar / Compartir PDF
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onClose} style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: "800" }}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 }

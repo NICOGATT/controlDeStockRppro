@@ -1,35 +1,63 @@
 import { useState } from "react";
 import {StyleSheet, View, Text, TouchableOpacity, Pressable} from "react-native"; 
+import { StockProducto } from "../types/StockProducto";
+import { Product } from "../types/Product";
+import { ColorYTalle } from "../types/ColorYTalle";
+import { apiFetch } from "../api/apiClient";
 
-type ProductItemProps = {
-    nombre : string; 
-    cantidadInicial: number; 
-    stockDeseado: number;
-    precio : number;
-    onAgregar : () => void; 
-    onQuitar : () => void; 
-    onDelete : () => void;
+interface ProductProps {
+    producto : Product; 
+    onAgregar : (variante : StockProducto) => void; 
+    onQuitar : (variante : StockProducto) => void; 
+    onDelete : () => void; 
 }
 
-export function ProductItem({nombre, cantidadInicial, stockDeseado, precio, onAgregar, onQuitar, onDelete} : ProductItemProps) {
-    const disableQuitar = cantidadInicial === 0; 
+export function ProductItem({producto, onAgregar, onQuitar, onDelete} : ProductProps) {
+    const stockTotal = (producto.stockProductos ?? []).reduce((acc, sp) => acc + sp.stock, 0); 
+
+    const stockBajo = stockTotal <= 5
+    const disableQuitar = stockTotal <= 0
+
+    async function actualizarStock(
+        productoId : number , 
+        colorId : number, 
+        talleId : number, 
+        delta : number 
+    ) {
+        await apiFetch('/api/stockProductos', {
+            method : "PUT", 
+            body : {
+                productoId, 
+                colorId,
+                talleId, 
+                delta
+            }
+        })
+    }
     return (
         <View>
-            <Text style = {styles.product}>{`${nombre}`}</Text>
-            <Text style = {[styles.cantidad, cantidadInicial === 0 && styles.cantidad0]}>cantidad : {cantidadInicial < 5 ? "Stock bajo" : `${cantidadInicial} unidades`}</Text>
-            <Text style = {styles.cantidadVendida}>Stock deseado :  {stockDeseado}</Text>
-            <Text style = {styles.precio}>${precio}</Text>
-            {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
-            <TouchableOpacity onPress={onAgregar} style = {styles.boton}>
-                <Text style = {styles.textButton}>+Agregar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-                onPress={onQuitar}
-                disabled={disableQuitar}
-                style={[styles.boton, disableQuitar && styles.botonDisabled]}
-            >
-                <Text style ={styles.textButton}>-Quitar</Text>
-            </TouchableOpacity>
+            <Text style = {styles.product}>{`${producto.nombre}`}</Text>
+            <Text style = {[styles.cantidad, stockBajo && styles.cantidad0]}>Stock : {stockBajo ? "Stock bajo" : `${stockTotal} unidades`}</Text>
+            <Text style = {styles.precio}>${producto.precio}</Text>
+            <Text style = {styles.tipoDePrenda}>{`${producto.tipoDePrenda.nombre}`}</Text>
+
+            {producto.stockProductos?.map((v, index) => (
+                <View key={index} style = {styles.varianteFila}>
+                    <Text style = {styles.varianteTexto}>{v.color?.nombre}</Text>
+                    <Text style = {styles.varianteTexto}>Talle : {v.talle?.nombre} - Cantidad : {v.stock}</Text>
+                    {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
+                    <TouchableOpacity onPress={() => onAgregar(v)} style = {styles.boton}>
+                        <Text style = {styles.textButton}>+Agregar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        onPress={() => onQuitar(v)}
+                        disabled={disableQuitar}
+                        style={[styles.boton, styles.botonDisabled]}
+                    >
+                        <Text style ={styles.textButton}>-Quitar</Text>
+                    </TouchableOpacity>
+                </View>
+            ))}
             <Pressable onPress = {onDelete}>
                 <Text > 🗑️ Eliminar</Text>
             </Pressable>
@@ -68,5 +96,23 @@ const styles = StyleSheet.create ({
     }, 
     textButton:{
         color : "white"
+    }, 
+    tipoDePrenda : {
+        color : "gray"
+    }, 
+    varianteFila : {
+        borderWidth : 1, 
+        borderRadius : 10, 
+        padding : 10
+    }, 
+    colorCirculo : {
+        borderRadius : 10, 
+        borderWidth : 1
+
+    }, 
+    varianteTexto : {
+        fontSize : 12,
+        backgroundColor : "gray",
+        fontWeight : "700"
     }
 });

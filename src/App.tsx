@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, ScrollView, Alert, Button, Platform, TextInput, Pressable } from 'react-native';
 import {ProductItem} from "./components/ProductItem"; 
 import { useState } from 'react';
-import {Product} from "./types/Product"; 
+import {getProductos} from "./api/Product"; 
 import { useEffect} from 'react';
 import { loadProducts, saveProducts } from './storage/productsStorage';
 import { Movement } from './types/Movement';
@@ -18,10 +18,10 @@ import { PrefacturaScreen } from './screens/PrefacturaScreen';
 import BarcodeScanScreen from './components/BarcodeScanScreen';
 import ScanScreen from './screens/ScanScreen';
 import ArmarPedidoScreen from './screens/ArmarPedidoScreen';
+import ColoresScreen from './screens/ColoresScreen';
+import TallesScreen from './screens/TallesScreen';
 
-export default function App() {
-  const [products, setProducts] = useState<Product[]>([])
-
+export default function App(){
   const [hydrated, setHydrated] = useState(false); 
 
   const [movements, setMovements] = useState<Movement[]>([])
@@ -39,20 +39,13 @@ export default function App() {
   {/*Recargamos los productos y los movimientos al iniciar la app*/}
   useEffect(() => {
     async function init() {
-      const storedProducts = await loadProducts(); 
-      if(storedProducts) setProducts(storedProducts);
       const storedMovements = await loadMovements(); 
       if(storedMovements) setMovements(storedMovements); 
       setHydrated(true); 
     }
     init()
   }, []);
-  
-  useEffect(() => {
-    if(!hydrated) return; 
-    saveProducts(products);
-  },[products, hydrated]);
-  
+
   useEffect(() => {
     saveMovements(movements)
   },[movements]); 
@@ -76,43 +69,43 @@ export default function App() {
   }
 
   {/*Agregamos stock que vendria ser una entrada del producto*/}
-  function agregarStock(id : number) {
-    {/*1) Encontramos el producto actual (para saber el nombre)*/}
-    const prod = products.find(p => p.id === id); 
-    if (!prod) return;
+  // function agregarStock(id : number) {
+  //   {/*1) Encontramos el producto actual (para saber el nombre)*/}
+  //   const prod = products.find(p => p.id === id); 
+  //   if (!prod) return;
 
-    {/*2) Actualizamos el stock (OJO: MISMA PROPIEDAD que se usa en la UI)*/}
-    setProducts((prev) => 
-      prev.map((p) => 
-        p.id === id ? {...p, cantidadInicial : p.cantidadInicial + 1} : p
-      )
-    );
-    {/*3) Registramos el movimiento */}
-    createMovement({
-      productId : prod.id, 
-      productName : prod.nombre, 
-      type : "ENTRADA", 
-      cantidad : 1
-    })
-  }
+  //   {/*2) Actualizamos el stock (OJO: MISMA PROPIEDAD que se usa en la UI)*/}
+  //   setProducts((prev) => 
+  //     prev.map((p) => 
+  //       p.id === id ? {...p, cantidadInicial : p.stock + 1} : p
+  //     )
+  //   );
+  //   {/*3) Registramos el movimiento */}
+  //   createMovement({
+  //     productId : prod.id, 
+  //     productName : prod.nombre, 
+  //     type : "ENTRADA", 
+  //     cantidad : 1
+  //   })
+  // }
   
-  {/*Quitamos el stock que vendria ser una salida del producto */}
-  function quitarStock(id : number) {
-    setProducts((products) => 
-      products.map((product) => {
-        if (product.id !== id) return product; 
-        if(product.cantidadInicial <= 0) return product; 
-        const updated = {...product, cantidadInicial : product.cantidadInicial - 1};
-        createMovement({
-          productId : product.id, 
-          productName : product.nombre, 
-          type : "SALIDA", 
-          cantidad : 1
-        });
-        return updated; 
-      })
-    )
-  }
+  // {/*Quitamos el stock que vendria ser una salida del producto */}
+  // function quitarStock(id : number) {
+  //   setProducts((products) => 
+  //     products.map((product) => {
+  //       if (product.id !== id) return product; 
+  //       if(product.stock <= 0) return product; 
+  //       const updated = {...product, cantidadInicial : product.stock - 1};
+  //       createMovement({
+  //         productId : product.id, 
+  //         productName : product.nombre, 
+  //         type : "SALIDA", 
+  //         cantidad : 1
+  //       });
+  //       return updated; 
+  //     })
+  //   )
+  // }
 
   {/*Borramos todos los moviemientos del AsyncStorage */}
   async function borrarTodoMovimientos(setMovements : any) {
@@ -162,86 +155,86 @@ export default function App() {
   }
 
   {/*Agregamos un producto a mano  */}
-  function handleAddProduct(nombre : string, stock: string, stockDeseado: string, precio: string) {
-    console.log("NOMBRE:", JSON.stringify(nombre));
-    const nombreLimpio = nombre.trim(); 
-    if(!nombreLimpio){
-      alert("El nombre es obligatorio")
-      return;     
-    }
+  // function handleAddProduct(nombre : string, stock: string, stockDeseado: string, precio: string) {
+  //   console.log("NOMBRE:", JSON.stringify(nombre));
+  //   const nombreLimpio = nombre.trim(); 
+  //   if(!nombreLimpio){
+  //     alert("El nombre es obligatorio")
+  //     return;     
+  //   }
 
-    const stockNumber = Number(stock)
-    const stockDeseadoNumber = Number(stockDeseado)
-    const precioNumber= Number(precio)
+  //   const stockNumber = Number(stock)
+  //   const stockDeseadoNumber = Number(stockDeseado)
+  //   const precioNumber= Number(precio)
 
-    if (Number.isNaN(stockNumber)  || Number.isNaN(precioNumber) || Number.isNaN(stockDeseadoNumber)) {
-      alert("Stock y precio deben ser numeros validos")
-      return;
-    }
-    const newProduct : Product = {
-      id : Date.now(), 
-      nombre : nombreLimpio, 
-      cantidadInicial : stockNumber,
-      stockDeseado : stockDeseadoNumber, 
-      precio : precioNumber, 
-    }
+  //   if (Number.isNaN(stockNumber)  || Number.isNaN(precioNumber) || Number.isNaN(stockDeseadoNumber)) {
+  //     alert("Stock y precio deben ser numeros validos")
+  //     return;
+  //   }
+  //   const newProduct : Product = {
+  //     id : Date.now(), 
+  //     nombre : nombreLimpio, 
+  //     stock : stockNumber,
+  //     stockDeseado : stockDeseadoNumber, 
+  //     precio : precioNumber, 
+  //   }
 
-    setProducts((prev) => [newProduct, ...prev]); 
-    //Limpiar el formulario
-    setNombre(""); 
-    setStock(""); 
-    setStockDeseado("");
-    setPrecio("");
-  }
+  //   setProducts((prev) => [newProduct, ...prev]); 
+  //   //Limpiar el formulario
+  //   setNombre(""); 
+  //   setStock(""); 
+  //   setStockDeseado("");
+  //   setPrecio("");
+  // }
 
   {/*Se borra un solo producto */}
-  function borrarProducto(id:number) {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-  }
+  // function borrarProducto(id:number) {
+  //   setProducts((prev) => prev.filter((p) => p.id !== id));
+  // }
 
   {/*Actualizamos un producto */}
-  function updateProduct(id : number, changes : {nombre : string, cantidadInicial : number, precio : number}) {
-    const nombreLimpio = changes.nombre.trim();
-    {/*Validacion minima */}
-    if(!nombreLimpio){
-      alert("El nombre es obligatorio");
-      return false;     
-    }
+  // function updateProduct(id : number, changes : {nombre : string, cantidadInicial : number, precio : number}) {
+  //   const nombreLimpio = changes.nombre.trim();
+  //   {/*Validacion minima */}
+  //   if(!nombreLimpio){
+  //     alert("El nombre es obligatorio");
+  //     return false;     
+  //   }
 
-    if(Number.isNaN(changes.cantidadInicial) || changes.cantidadInicial < 0) {
-      alert("Stock debe ser un numero valido");
-      return false;
-    }
+  //   if(Number.isNaN(changes.cantidadInicial) || changes.cantidadInicial < 0) {
+  //     alert("Stock debe ser un numero valido");
+  //     return false;
+  //   }
     
-    if(Number.isNaN(changes.precio) || changes.precio < 0) {
-      alert("Precio debe ser un numero valido");
-      return false;
-    }
+  //   if(Number.isNaN(changes.precio) || changes.precio < 0) {
+  //     alert("Precio debe ser un numero valido");
+  //     return false;
+  //   }
 
     {/*Producto actual */}
-    const current = products.find((p) => p.id === id);
-    if(!current) return false; 
+    // const current = products.find((p) => p.id === id);
+    // if(!current) return false; 
 
-    const oldStock = current.cantidadInicial; 
-    const newStock = changes.cantidadInicial;
-    const diff = newStock - oldStock;
+    // const oldStock = current.stock; 
+    // const newStock = changes.cantidadInicial;
+    // const diff = newStock - oldStock;
 
 
-    setProducts((prev) => 
-      prev.map((p) => (p.id === id ? {...p, nombre : nombreLimpio, cantidadInicial : newStock, precio : changes.precio} : p)
-    ));
+    // setProducts((prev) => 
+    //   prev.map((p) => (p.id === id ? {...p, nombre : nombreLimpio, cantidadInicial : newStock, precio : changes.precio} : p)
+    // ));
 
     {/*Crear movimiento automatico */}
-    if(diff !== 0) {
-      createMovement({
-        productId : current.id, 
-        productName : current.nombre, 
-        type : diff > 0 ? "ENTRADA" : "SALIDA", 
-        cantidad : Math.abs(diff)
-      })
-    }
-    return true;
-  }
+  //   if(diff !== 0) {
+  //     createMovement({
+  //       productId : current.id, 
+  //       productName : current.nombre, 
+  //       type : diff > 0 ? "ENTRADA" : "SALIDA", 
+  //       cantidad : Math.abs(diff)
+  //     })
+  //   }
+  //   return true;
+  // }
 
   return (
     <NavigationContainer>
@@ -253,10 +246,6 @@ export default function App() {
           {props => (
             <ProductsScreen
               {...props}
-              products = {products}
-              agregarStock = {agregarStock}
-              quitarStock = {quitarStock}
-              borrarProducto = {borrarProducto}
             />
           )}
         </Stack.Screen>
@@ -267,10 +256,9 @@ export default function App() {
           {props =>(
             <AddProductsScreen
               {...props}
-              onAddProduct = {handleAddProduct}
             />
           )}
-        </Stack.Screen>
+        </Stack.Screen> 
         <Stack.Screen
           name = "Movements"
           options = {{title : "Movimientos"}}
@@ -290,29 +278,39 @@ export default function App() {
           {props => (
             <EditProductScreen
               {...props}
-              onUpdateProduct = {updateProduct}
             />
           )}
         </Stack.Screen>
-        <Stack.Screen
+        {/* <Stack.Screen
           name='Prefactura'
           component={PrefacturaScreen}
           options={{title : "Prefactura"}}
-        />
+        /> */}
         <Stack.Screen
           name = "BarcodeScanScreen"
           component={ScanScreen}
           options={{title : "Escaner"}}
         />
-        <Stack.Screen
+        {/* <Stack.Screen
           name='PedidosScreen'
           component={ArmarPedidoScreen}
           options={{title : "Armar pedido"}}
+        /> */}
+        <Stack.Screen
+          name = 'ColoresScreen'
+          component={ColoresScreen}
+          options={{title : "Colores"}}
+        />
+        <Stack.Screen
+          name='TallesScreen'
+          component={TallesScreen}
+          options={{title : "Talles"}}
         />
       </Stack.Navigator>
     </NavigationContainer>
   )
 }
+
 
 const styles = StyleSheet.create({
   container: {

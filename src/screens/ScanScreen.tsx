@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {View, Text, Button, ActivityIndicator, Alert} from "react-native"; 
-import { Product } from "../types/Product";
+import {getProductos} from "../api/Product";
 import { Camera, CameraView } from "expo-camera";
 
 type RouteParams = {
     products : Product[]
 }
 export default function ScanScreen({navigation, route} : any) {
-    const { products } = route.params as { products: Product[] };
+    const products = (route.params as { products?: Product[] })?.products ?? [];
     const [hasPermission, setHasPermission] = useState<boolean | null>(null); 
     const [scanned, setScanned] = useState(false); 
 

@@ -1,23 +1,72 @@
 import {View, Text, Pressable, StyleSheet, ScrollView, Platform} from "react-native"; 
 import { ProductItem } from "../components/ProductItem"; 
-import { useNavigation } from "@react-navigation/native";
-import { Product } from "../types/Product";
-import { useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useState, useRef, useEffect, useCallback} from "react";
 import GenerarCodigoButton from "../components/BarcodeScanScreen";
+import { apiFetch } from "../api/apiClient";
+import { getProductos } from "../api/Product";
+import { Product } from "../types/Product";
+import { StockProducto } from "../types/StockProducto";
+import { ColorYTalle } from "../types/ColorYTalle";
 
 export default function ProductsScreen({
-    navigation, 
-    products, 
-    agregarStock, 
-    quitarStock, 
-    borrarProducto
+    navigation
 } : any) {
     const [showQR, setShowQR] = useState(false);
-    const [selectedProduct, setSelectProduct] = useState<Product | null>(null); 
-    function onGenerarQr(producto : Product) {
-        setSelectProduct(producto); 
-        setShowQR(true);
+    const [productos, setProductos] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true); 
+    const [selectedStockProduct, setSelectStockProduct] = useState<StockProducto | null>(null); 
+    const qrRef = useRef<any>(null);
+
+    async function cargarProductos() {
+        setLoading(true); 
+        try {
+            const data = await apiFetch<Product[]>('/api/productos')
+            setProductos(data)
+        } finally{
+            setLoading(false)
+        }
     }
+
+    useFocusEffect(
+        useCallback (() => {
+            cargarProductos();
+        }, [])
+    )
+
+    // function onGenerarQr(producto : Product) {
+    //     setSelectStockProduct(producto); 
+    //     setShowQR(true);
+    // }
+    
+    async function moverStock(variante : StockProducto, productoId : number, delta: number) {
+        try {
+            const data = await apiFetch<StockProducto>('/api/stockProductos', {
+                method : "PUT", 
+                body : {
+                    productoId : productoId, 
+                    talleId : variante.talleId,
+                    colorId : variante.colorId, 
+                    delta : delta
+                }
+            })
+            await cargarProductos(); 
+        } catch (error) {
+            console.error('Error moviendo stock: ', error)
+        }
+    }
+
+    async function eliminarProducto(producto : Product) {
+        try {
+            const data = await apiFetch(`/api/productos/${producto.id}`, {
+                method : "DELETE",
+            })
+            await cargarProductos()
+        } catch (error) {
+            console.log('No se pudo borrar el producto', error)
+        }
+    }
+    if(loading) return <Text>Cargando....</Text>
     return (
         <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
             <View style = {styles.container}>
@@ -34,44 +83,47 @@ export default function ProductsScreen({
                         <Pressable onPress = {() => navigation.navigate("PedidosScreen", {pedidoId : "pedido - 123"})}> 
                             <Text>Armar pedido</Text>
                         </Pressable>
-                        <Pressable onPress={() => navigation.navigate("BarcodeScanScreen", {products})}>
+                        <Pressable onPress={() => navigation.navigate("BarcodeScanScreen", {productos})}>
                             <Text>Escanear QR</Text>
+                        </Pressable>
+                        <Pressable onPress={() => navigation.navigate("ColoresScreen")}>
+                            <Text>Colores</Text>
+                        </Pressable>
+                        <Pressable onPress={() => navigation.navigate("TallesScreen")}>
+                            <Text>Talles</Text>
                         </Pressable>
                     </View>
                 </View>
 
-                <Text style = {styles.subtitle}>Cantidad total: {products.length}</Text>
+                <Text style = {styles.subtitle}>Cantidad total: {productos.length}</Text>
 
-                {products.length === 0 && (
+                {productos.length === 0 && (
                     <Text>No hay productos agregados</Text>
                 )}
 
-                {products.map((p : any) => (
-                    <View key = {p.id} style = {styles.productContainer}>
+                {productos.map((producto) => (
+                    <View key = {producto.id} style = {styles.productContainer}>
                             <ProductItem
-                                nombre = {p.nombre}
-                                cantidadInicial = {p.cantidadInicial}
-                                stockDeseado = {p.stockDeseado}
-                                precio = {p.precio}
-                                onAgregar = {() => agregarStock (p.id)}
-                                onQuitar = {() => quitarStock (p.id)}
-                                onDelete = {() => borrarProducto (p.id)}
+                                key={producto.id}
+                                producto={producto}
+                                onAgregar={(variante) => moverStock(variante, producto.id, +1)}
+                                onQuitar={(variante) => moverStock(variante, producto.id, -1)}
+                                onDelete={() => eliminarProducto(producto)}
                             />
                             <View>
-                                <Pressable onPress={() => navigation.navigate("EditProduct", {product: p})}>
+                                <Pressable onPress={() => navigation.navigate("EditProduct", {product: producto.id})}>
                                     <Text>✏️ Editar</Text>
                                 </Pressable>
-                                <Pressable onPress ={() => onGenerarQr(p)}>
+                                {/* <Pressable onPress ={() => onGenerarQr(producto)}>
                                     <Text>Generar codigo de barra</Text>
-                                </Pressable>
-
+                                </Pressable> */}
                             </View>
                         </View>
                     )
                 )}
                 <GenerarCodigoButton 
                     visible = {showQR}
-                    producto={selectedProduct}
+                    stockItem={selectedStockProduct}
                     onClose={() => setShowQR(false)}
                 />
             </View>

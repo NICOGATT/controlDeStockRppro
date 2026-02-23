@@ -1,9 +1,11 @@
-import {useMemo, useState} from "react" ; 
-import {View, TextInput,  Pressable, Text, StyleSheet} from "react-native";
+import {useEffect, useMemo, useState} from "react" ; 
+import {View, TextInput,  Pressable, Text, StyleSheet, Alert, ActivityIndicator} from "react-native";
+import { apiFetch } from "../api/apiClient";
 
 export default function EditProductScreen ({route, navigation, onUpdateProduct} : any) {
     const {product} = route.params;
 
+    const [loading, setLoading] = useState(true)
     const [nombre, setNombre] = useState(product.nombre);
     const [stock, setStock]= useState(String(product.cantidadInicial));
     const [precio, setPrecio] = useState(String(product.precio));
@@ -17,15 +19,40 @@ export default function EditProductScreen ({route, navigation, onUpdateProduct} 
 
     const formValido = nombreValido && stockValido && precioValido;
 
-    function handleSave() {
+    useEffect(() => {
+        (async () => {
+            try {
+                setLoading(true)
+                const data = await apiFetch<{nombre : string, precio : number}>(`/api/productos/${product.productoId}`)
+                setNombre(data.nombre ?? "");
+                setPrecio(String(data.precio ?? ""));
+            } catch (error) {
+                console.log('Error cargando producto ', error); 
+                Alert.alert('Error', 'No se pudo cargar el producto'); 
+                navigation.goBack()
+            } finally{
+                setLoading(false)
+            }
+        })();
+    }, [product.productoId])
+
+    async function handleSave() {
         if(!formValido) return;
-        const ok = onUpdateProduct(product.id, {
-            nombre : nombre.trim(),
-            cantidadInicial : stockNumber,
-            precio : precioNumber
-        });
-        if(ok) navigation.goBack();
+        try {
+            await apiFetch(`/api/productos/${product.productoId}`, {
+                method : "PUT", 
+                body : {
+                    nombre : nombre.trim(), 
+                    precio : Number(precio)
+                },
+            }); 
+            navigation.goBack()
+        } catch (error) {
+            console.log('Error actualizado producto', error)
+            Alert.alert('Error', 'No se pudo actualizar producto')
+        }
     }
+    if (loading) return <ActivityIndicator style ={{marginTop : 20}}/>
 
     return (
         <View style = {styles.container}>
