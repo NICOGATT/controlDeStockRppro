@@ -2,28 +2,33 @@ import {useEffect, useMemo, useState} from "react" ;
 import {View, TextInput,  Pressable, Text, StyleSheet, Alert, ActivityIndicator} from "react-native";
 import { apiFetch } from "../api/apiClient";
 
-export default function EditProductScreen ({route, navigation, onUpdateProduct} : any) {
-    const {product} = route.params;
+export default function EditProductScreen ({route, navigation} : any) {
+    const {producto} = route.params;
 
     const [loading, setLoading] = useState(true)
-    const [nombre, setNombre] = useState(product.nombre);
-    const [stock, setStock]= useState(String(product.cantidadInicial));
-    const [precio, setPrecio] = useState(String(product.precio));
+    const [nombre, setNombre] = useState(producto?.nombre ?? "");
+    const [tipoDePrenda, setTipoDePrenda] = useState(producto?.tipoDePrenda?.nombre ?? "");
+    const [precio, setPrecio] = useState(String(producto?.precio ?? 0));
 
-    const nombreValido = nombre.trim().length > 0;
-    const stockNumber = Number(stock); 
+    const nombreValido = nombre.length > 0;
+    const tipoDePrendaValido = tipoDePrenda.trim().length > 0;
     const precioNumber = Number(precio); 
 
-    const stockValido = !isNaN(stockNumber) && stockNumber > 0;
+
     const precioValido = !isNaN(precioNumber) && precioNumber > 0;
 
-    const formValido = nombreValido && stockValido && precioValido;
-
+    const formValido = nombreValido && precioValido && tipoDePrendaValido;
     useEffect(() => {
+        if (!producto) {
+            console.log('Producto no encontrado');
+            Alert.alert('Error', 'Producto no encontrado'); 
+            navigation.goBack(); 
+            return; 
+        }
         (async () => {
             try {
                 setLoading(true)
-                const data = await apiFetch<{nombre : string, precio : number}>(`/api/productos/${product.productoId}`)
+                const data = await apiFetch<{id : number, nombre : string, precio : number}>(`/api/productos/${producto.id}`)
                 setNombre(data.nombre ?? "");
                 setPrecio(String(data.precio ?? ""));
             } catch (error) {
@@ -34,16 +39,17 @@ export default function EditProductScreen ({route, navigation, onUpdateProduct} 
                 setLoading(false)
             }
         })();
-    }, [product.productoId])
+    }, [producto])
 
     async function handleSave() {
         if(!formValido) return;
         try {
-            await apiFetch(`/api/productos/${product.productoId}`, {
+            await apiFetch<{id : number, nombre : string, precio : number}>(`/api/productos/${producto.id}`, {
                 method : "PUT", 
                 body : {
                     nombre : nombre.trim(), 
-                    precio : Number(precio)
+                    tipoDePrenda : tipoDePrenda,
+                    precio : Number(precio), 
                 },
             }); 
             navigation.goBack()
@@ -63,13 +69,6 @@ export default function EditProductScreen ({route, navigation, onUpdateProduct} 
                 style = {styles.input}
             />
             <TextInput
-                value = {stock} 
-                onChangeText={setStock} 
-                placeholder="Stock"
-                keyboardType="numeric"
-                style = {styles.input}
-            />
-            <TextInput
                 value = {precio} 
                 onChangeText={setPrecio} 
                 placeholder="Precio"
@@ -77,7 +76,14 @@ export default function EditProductScreen ({route, navigation, onUpdateProduct} 
                 style = {styles.input}
             />
 
-            <Pressable onPress = {handleSave} disabled = {!formValido} style = {[styles.buttonSave, {backgroundColor : formValido ? "#4CAF50" : "#999"}]}>
+            <TextInput 
+                value = {tipoDePrenda}
+                onChangeText={setTipoDePrenda}
+                placeholder="Tipo de Prenda"
+                style = {styles.input}
+            />
+
+            <Pressable onPress = {handleSave}  style = {styles.buttonSave}>
                 <Text style = {styles.buttonSaveText}>Guardar Cambios</Text>
             </Pressable>
         </View>
@@ -100,6 +106,7 @@ const styles = StyleSheet.create({
         padding : 12, 
         borderRadius : 6, 
         alignItems : "center",
+        backgroundColor : "green"
     }, 
     buttonSaveText : {
         color : "white", 

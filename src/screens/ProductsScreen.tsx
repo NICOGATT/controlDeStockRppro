@@ -8,15 +8,34 @@ import { getProductos } from "../api/Product";
 import { Product } from "../types/Product";
 import { StockProducto } from "../types/StockProducto";
 import { ColorYTalle } from "../types/ColorYTalle";
+import AgregarVariante from "../components/AgregarVariante";
+import { Color } from "../types/Color";
+import { Talle } from "../types/Talle";
 
 export default function ProductsScreen({
-    navigation
-} : any) {
+    navigation,
+    route,
+}: any) {
     const [showQR, setShowQR] = useState(false);
     const [productos, setProductos] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true); 
     const [selectedStockProduct, setSelectStockProduct] = useState<StockProducto | null>(null); 
     const qrRef = useRef<any>(null);
+    const [producto, setProducto] = useState<Product | null>(null);
+    const [showAgregarVariante, setShowAgregarVariante] = useState(false); 
+    const [productoSeleccionado, setProductoSeleccionado] = useState<Product | null>(null);
+    const [colores, setColores] = useState<Color[]>([]); 
+    const [talles, setTalles] = useState<Talle[]>([]); 
+
+    const abrirAgregarVariante = (producto: Product) => {
+            setProductoSeleccionado(producto);
+            setShowAgregarVariante(true);
+        }
+    
+        const cerrarAgregarVariante = () => {
+            setProductoSeleccionado(null);
+            setShowAgregarVariante(false);
+        }
 
     async function cargarProductos() {
         setLoading(true); 
@@ -28,26 +47,90 @@ export default function ProductsScreen({
         }
     }
 
-    useFocusEffect(
-        useCallback (() => {
-            cargarProductos();
-        }, [])
-    )
+    const cargarColores = async() => {
+        try {
+            const data = await apiFetch<Color[]>('/api/colores')
+            setColores(data)
+        } catch (error) {
+            console.log('Error cargando colores', error)
+        }
+    }
 
-    // function onGenerarQr(producto : Product) {
-    //     setSelectStockProduct(producto); 
-    //     setShowQR(true);
-    // }
-    
+    const cargarTalles = async() => {
+        try {
+            const data = await apiFetch<Talle[]>('/api/talles')
+            setTalles(data)
+        } catch (error) {
+            console.log('Error cargando talles', error)
+        }
+    }
+
+    useFocusEffect(
+        useCallback(() => {
+            cargarProductos();
+            cargarColores();
+            cargarTalles();
+        }, [])
+    );
+
+    useEffect(() => {
+        const qrData = (route.params as { scannedQrData?: string })?.scannedQrData;
+        if (!qrData || productos.length === 0) return;
+        const resultado = leerCodigoQr(qrData);
+        if (resultado) {
+            setSelectStockProduct(resultado.stockProducto);
+            setShowQR(true);
+            setProducto(resultado.producto);
+        }
+        navigation.setParams({ scannedQrData: undefined });
+    }, [productos, route.params]);
+
+    function onGenerarQr(producto : Product, productoStock : StockProducto) {
+        setProducto(producto);
+        setSelectStockProduct(productoStock); 
+        setShowQR(true);
+    }
+
+    /**
+     * Lee un código QR con formato rppro:stock:productoId:talleId:colorId
+     * y devuelve el Producto y el StockProducto relacionados, o null si no existe.
+     */
+    function leerCodigoQr(
+        data: string
+      ): { producto: Product; stockProducto: StockProducto } | null {
+        const parts = data.trim().split(":");
+        if (parts.length < 5 || parts[0] !== "rppro" || parts[1] !== "stock") return null;
+      
+        const productoId = Number(parts[2]);
+        const talleId = Number(parts[3]);
+        const colorId = Number(parts[4]);
+      
+        if ([productoId, talleId, colorId].some(Number.isNaN)) return null;
+      
+        const producto = productos.find((p) => p.id === productoId);
+        if (!producto?.stockProductos) return null;
+      
+        const stockProducto = producto.stockProductos.find(
+          (sp) => sp.talleId === talleId && sp.colorId === colorId
+        );
+        if (!stockProducto) return null;
+      
+        return { producto, stockProducto };
+      }
+
     async function moverStock(variante : StockProducto, productoId : number, delta: number) {
         try {
-            const data = await apiFetch<StockProducto>('/api/stockProductos', {
+            await apiFetch<StockProducto>('/api/stockProductos', {
                 method : "PUT", 
                 body : {
                     productoId : productoId, 
-                    talleId : variante.talleId,
-                    colorId : variante.colorId, 
-                    delta : delta
+                    coloresYTalles : [
+                        {
+                            color : variante.color?.nombre, 
+                            talle : variante.talle?.nombre,
+                            cantidad : variante.stock + delta
+                        }
+                    ]
                 }
             })
             await cargarProductos(); 
@@ -100,30 +183,45 @@ export default function ProductsScreen({
                 {productos.length === 0 && (
                     <Text>No hay productos agregados</Text>
                 )}
-
-                {productos.map((producto) => (
-                    <View key = {producto.id} style = {styles.productContainer}>
-                            <ProductItem
-                                key={producto.id}
-                                producto={producto}
-                                onAgregar={(variante) => moverStock(variante, producto.id, +1)}
-                                onQuitar={(variante) => moverStock(variante, producto.id, -1)}
-                                onDelete={() => eliminarProducto(producto)}
-                            />
-                            <View>
-                                <Pressable onPress={() => navigation.navigate("EditProduct", {product: producto.id})}>
-                                    <Text>✏️ Editar</Text>
-                                </Pressable>
-                                {/* <Pressable onPress ={() => onGenerarQr(producto)}>
-                                    <Text>Generar codigo de barra</Text>
-                                </Pressable> */}
+                
+                <View>
+                    {productos.map((producto) => (
+                        <View key = {producto.id} style = {styles.productContainer}>
+                                <ProductItem
+                                    key={producto.id}
+                                    producto={producto}
+                                    onAgregar={(variante) => moverStock(variante, producto.id, +1)}
+                                    onQuitar={(variante) => moverStock(variante, producto.id, -1)}
+                                    onDelete={() => eliminarProducto(producto)}
+                                    onAgregarVariante={abrirAgregarVariante}
+                                />
+                                <View>
+                                    <Pressable onPress={() => navigation.navigate("EditProduct", {producto : producto})}>
+                                        <Text>✏️ Editar</Text>
+                                    </Pressable>
+                                    {producto.stockProductos?.map((sp) => (
+                                        <Pressable key={`${sp.productoId}-${sp.talleId}-${sp.colorId}`} onPress={() => onGenerarQr(producto, sp)}>
+                                            <Text>📲 Generar QR</Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
                             </View>
-                        </View>
-                    )
-                )}
+                        )
+                    )}
+                </View>
+                {/* 🔹 Modal (también fuera del map) */}
+                <AgregarVariante
+                    visible={showAgregarVariante}
+                    producto={productoSeleccionado}
+                    colores={colores}
+                    talles={talles}
+                    onClose={cerrarAgregarVariante} 
+                    onCreated={cargarProductos}           
+                />
                 <GenerarCodigoButton 
                     visible = {showQR}
                     stockItem={selectedStockProduct}
+                    producto={producto}
                     onClose={() => setShowQR(false)}
                 />
             </View>
@@ -168,11 +266,11 @@ const styles = StyleSheet.create({
     }, 
     productContainer : {
         backgroundColor : "white",
-        flexDirection : "row",
-        justifyContent : "space-between",
-        alignItems : "center",
+        flexDirection : Platform.OS === "web" ? "row" : "column",
+        justifyContent : Platform.OS === "web" ? "space-between" : "flex-start",
+        alignItems : Platform.OS === "web" ? "center" : "flex-start",
         padding : 8,
         borderRadius : 8,
-        marginBottom : 10, 
+        marginBottom : 10,
     }
 })

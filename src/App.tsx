@@ -20,6 +20,7 @@ import ScanScreen from './screens/ScanScreen';
 import ArmarPedidoScreen from './screens/ArmarPedidoScreen';
 import ColoresScreen from './screens/ColoresScreen';
 import TallesScreen from './screens/TallesScreen';
+import AgregarVariante from './components/AgregarVariante';
 
 export default function App(){
   const [hydrated, setHydrated] = useState(false); 
@@ -273,14 +274,10 @@ export default function App(){
         </Stack.Screen>
         <Stack.Screen 
           name= "EditProduct"
+          component={EditProductScreen}
           options = {{title : "Editar producto"}}
-        >
-          {props => (
-            <EditProductScreen
-              {...props}
-            />
-          )}
-        </Stack.Screen>
+        
+        />
         {/* <Stack.Screen
           name='Prefactura'
           component={PrefacturaScreen}

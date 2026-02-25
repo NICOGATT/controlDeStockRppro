@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {StyleSheet, View, Text, TouchableOpacity, Pressable} from "react-native"; 
 import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
@@ -10,13 +10,17 @@ interface ProductProps {
     onAgregar : (variante : StockProducto) => void; 
     onQuitar : (variante : StockProducto) => void; 
     onDelete : () => void; 
+    onAgregarVariante : (producto : Product) => void; 
 }
 
-export function ProductItem({producto, onAgregar, onQuitar, onDelete} : ProductProps) {
+export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarVariante} : ProductProps) {
     const stockTotal = (producto.stockProductos ?? []).reduce((acc, sp) => acc + sp.stock, 0); 
 
     const stockBajo = stockTotal <= 5
     const disableQuitar = stockTotal <= 0
+
+    
+
 
     async function actualizarStock(
         productoId : number , 
@@ -40,6 +44,9 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete} : ProductP
             <Text style = {[styles.cantidad, stockBajo && styles.cantidad0]}>Stock : {stockBajo ? "Stock bajo" : `${stockTotal} unidades`}</Text>
             <Text style = {styles.precio}>${producto.precio}</Text>
             <Text style = {styles.tipoDePrenda}>{`${producto.tipoDePrenda.nombre}`}</Text>
+            <TouchableOpacity onPress={() => onAgregarVariante(producto)} style = {styles.boton}>
+                <Text style = {styles.textButton}>+ Agregar Variante</Text>
+            </TouchableOpacity>
 
             {producto.stockProductos?.map((v, index) => (
                 <View key={index} style = {styles.varianteFila}>

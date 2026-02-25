@@ -32,9 +32,19 @@ export default function ScanScreen({navigation, route} : any) {
         return Number(data);
     }
 
+    const isQrStock = (data: string) => {
+        const parts = data.trim().split(":");
+        return parts.length >= 5 && parts[0] === "rppro" && parts[1] === "stock";
+    };
+
     const handleBarCodeScanned = ({ data }: { data: string }) => {
         if (scanned) return;
         setScanned(true);
+
+        if (isQrStock(data)) {
+            navigation.navigate("Productos", { scannedQrData: data });
+            return;
+        }
 
         const id = parseProductId(data);
 

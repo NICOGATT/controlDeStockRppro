@@ -4,19 +4,23 @@ import QRCode from "react-native-qrcode-svg";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { StockProducto } from "../types/StockProducto";
+import { Product } from "../types/Product";
 
 type Props = {
   visible : boolean, 
-  stockItem : StockProducto
+  stockItem : StockProducto, 
+  producto : Product
 }
 
 export default function GenerarCodigoButton({
   visible,
   stockItem,
+  producto,
   onClose,
 }: {
   visible: boolean;
   stockItem : StockProducto | null;
+  producto : Product | null;
   onClose: () => void;
 }) {
   const qrRef = useRef<any>(null);
@@ -53,13 +57,13 @@ export default function GenerarCodigoButton({
           </head>
           <body>
             <div class="card">
-              <p class="title">${stockItem.producto?.nombre}</p>
-              <p class="meta"><b>Precio:</b> $${stockItem.producto?.precio}>
+              <p class="title">${producto?.nombre ?? ""}</p>
+              <p class="meta"><b>Precio:</b> $${producto?.precio ?? 0}>
               <p class="meta"><b>Stock:</b> ${stockItem.stock}</p>
               <div class="qr">
                 <img src="${qrDataUrl}" width="220" height="220" />
               </div>
-              <p class="id">ID: ${stockItem.productoId}</p>
+              <p class="id">ID: ${producto?.id ?? 0}</p>
             </div>
           </body>
         </html>
@@ -103,7 +107,7 @@ export default function GenerarCodigoButton({
           }}
         >
           <Text style={{ fontWeight: "800", marginBottom: 10 }}>
-            {stockItem.producto?.nombre}
+            {producto?.nombre ?? ""}
           </Text>
 
           <QRCode
@@ -112,8 +116,13 @@ export default function GenerarCodigoButton({
             getRef={(c) => (qrRef.current = c)}
           />
 
+          <Text style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+              ID: {producto?.id ?? 0}
+          </Text>
+
           <TouchableOpacity
             onPress={onDownloadPdf}
+            disabled = {!qrRef.current}
             style={{
               marginTop: 14,
               backgroundColor: "#111",
