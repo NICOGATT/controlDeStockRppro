@@ -1,137 +1,562 @@
 import React, {useEffect, useMemo, useState} from "react"; 
-import {Alert, FlatList, Text, TextInput, TouchableOpacity,View} from "react-native"; 
-import { productos } from "../types/mockData";
+import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform} from "react-native"; 
+import { StockProducto } from "../types/StockProducto";
+import { Product } from "../types/Product";
+import { Cliente } from "../types/Cliente";
+import { PedidoItem } from "../types/PedidoItem";
+import { calcTotal, calcularSubtTotal, generarCodigoPedido } from "../utils/pedido";
+import { PedidoDraft } from "../types/PedidoDraft";
+import { apiFetch } from "../api/apiClient";
+import { Direccion } from "../types/Direccion";
+import { Prefactura } from "../types/Prefactura";
+import { PrefacturaProductos } from "../types/PracturaProducto";
 
-type Item = { 
-    id: string; 
-    productoId: number; 
-    nombre: string;
-    stock: number; 
-    precio: number
-};
+
 
 const formatMoney = (n: number) =>
     new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
 
-export default function ArmarPedidoScreen({route, navigation} : any) {
-    const {pedidoId, preselectProductoId} = route.params as {pedidoId:string, preselectProductoId ? : number};
+export default function ArmarPedidoScreen({navigation} : any) {
+    const { width } = useWindowDimensions();
+    const isSmall = width < 380;
 
-    const [query, setQuery] = useState(""); 
-    const [cantidad, setCantidad] = useState("1"); 
-    const [items, setItems] = useState<Item[]>([]); 
+    const [clientes, setClientes] = useState<Cliente[]>([]); 
+    const [clientesSel, setClientesSel] = useState<Cliente>(); 
 
-    const resultados = useMemo(() => {
-        const q = query.trim().toLowerCase(); 
-        if(!q) return; 
-        return productos.filter((p) => p.nombre.toLowerCase().includes(q))
-    }, [query]); 
+    const [modalCliente, setModalCliente] = useState(false);
+    const [nuevoNombre, setNuevoNombre] = useState("");
+    const [nuevoTel, setNuevoTel] = useState("");
+    const [nuevoDir, setNuevoDir] = useState("");
+    const [direccion, setDireccion] = useState<Direccion | null>(null);
+    const [direccion2, setDireccion2] = useState<string>("")
 
-    function  agregarProducto(productoId:number, cant:number) {
-        const prod = productos.find((p) => p.id === productoId)
-        if(!prod) return; 
+    const [qVar, setQVar] = useState("");
+    const [variantes, setVariantes] = useState<StockProducto[]>([]);
+    const [loadingVar, setLoadingVar] = useState(false);
 
-        setItems(prev => {
-            const existente = prev.find( it => it.productoId === productoId)
-            if(existente) {
-                return prev.map((it) => 
-                    it.productoId === productoId ? {...it,stock : it.stock + cant} : it
-                )
-            }
-            return [...prev, { id: `it-${Date.now()}`, productoId, nombre: prod.nombre, stock : cant, precio : prod.precio}];
-        })
+    const [items, setItems] = useState<PedidoItem[]>([]);
+    const total = useMemo(() => calcTotal(items), [items]);
+
+    const draft : PedidoDraft = useMemo(() => ({
+        codigo : generarCodigoPedido(), 
+        fechaISO : new Date().toISOString(),
+        cliente : clientesSel,
+        direccion: direccion2 || "", 
+        items, 
+        total,
+    }), [clientesSel, direccion, items, total]);
+
+    async function loadClientes() {
+        const res = await apiFetch<Cliente[]>('/api/clientes');
+        //Adapta mapping segun tu backend
+        const mapped : Cliente[] = res.map((c : any) => ({ 
+            id : c.id, 
+            nombre : c.nombre, 
+            telefono : c.telefono,
+            direccion : c.direccion
+        })); 
+        setClientes(mapped);
+        if(!clientesSel && mapped.length > 0) setClientesSel(mapped[0]);
+    }
+
+    async function loadStockProductos() {
+        try {
+            setLoadingVar(true);
+            const res = await getStockProductos();
+            console.log(res[0])
+            const mapped : StockProducto[] = res.map((sp : any) => ({
+                productoId : sp.productoId,
+                talleId : sp.talleId, 
+                colorId : sp.colorId,
+                stock : sp.stock ?? sp.cantidad,
+                producto : sp.producto,
+                talle : sp.talle,
+                color : sp.color,
+            }));
+            setVariantes(mapped);
+        } catch (e) {
+            Alert.alert("Error", "No se pudieron cargar los productos");
+        } finally {
+            setLoadingVar(false);
+        }
+    }
+
+    function getStockProductos() {
+        return apiFetch<StockProducto[]>('/api/stockProductos');
+    }
+
+    function getStockProductoByProducto(productoId : number) {
+        return apiFetch<StockProducto[]>(`/api/stockProductos?productoId=${productoId}`);
     }
 
     useEffect(() => {
-        if (preselectProductoId) {
-            {/*Si viene del scanner agregamos uno automaticamente */}
-            agregarProducto(preselectProductoId, 1)
-        }
-    }, [preselectProductoId]);
+        loadClientes();
+        loadStockProductos();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const total = useMemo(() => items.reduce((acc, it) => acc + it.precio * it.stock, 0), [items]); 
+    function addStockProductoToItems(sp : StockProducto) {
+        //Si ya existe, incrementa en cantidad 
+        setItems((prev) => {
+            const idx = prev.findIndex((it) => it.productoId === sp.productoId && it.talleId === sp.talleId && it.colorId === sp.colorId);
 
-    const onAgregarBusqueda = (productId:number) => {
-        const cant = Number(cantidad);
-        if (!Number.isFinite(cant) || cant <= 0) {
-            Alert.alert("Cantidad invalida", "Pone una cantidad mayor a 0."); 
-            return; 
-        }
-        agregarProducto(productId, cant); 
-        setQuery(""); 
-        setCantidad("1"); 
+            if(idx >= 0) {
+                const current = prev[idx]; 
+                const nextQty = current.cantidad + 1; 
+                if (nextQty > sp.stock) {
+                    Alert.alert('Sin stock', `Stock disponible: ${sp.stock}`)
+                    return prev;
+                }
+                const updated = [...prev]; 
+                updated[idx] = {
+                    ...current, 
+                    cantidad : nextQty, 
+                    subtotal : calcularSubtTotal(current.precioUnitario, nextQty)
+                }
+                return updated;
+            }
+
+            if (sp.stock <= 0) {
+                Alert.alert('Sin stock', 'No hay stock disponible para este producto');
+                return prev;
+            }
+
+            const item : PedidoItem = {
+                productoId : sp.productoId,
+                talleId : sp.talleId,
+                colorId : sp.colorId,
+                nombreProducto : sp.producto?.nombre ?? `Producto ${sp.productoId}`,
+                talleNombre : sp.talle?.nombre,
+                colorNombre : sp.color?.nombre,
+                cantidad : 1,
+                precioUnitario : sp.producto?.precio ?? 0,
+                subtotal : calcularSubtTotal(sp.producto?.precio ?? 0, 1)
+            }
+
+            return [...prev, item];
+        })
     }
 
+    function changeQty(productoId : number, talleId : number, colorId : number, nuevaCantidad : number) {
+        setItems((prev) => {
+            const idx = prev.findIndex((it) => it.productoId === productoId && it.talleId === talleId && it.colorId === colorId);
+            if(idx < 0) return prev;
+            const item = prev[idx];
+            const sp = variantes.find((v) => v.productoId === productoId && v.talleId === talleId && v.colorId === colorId);
+            const max = sp?.stock ?? Infinity;
+
+            const nextQty = item.cantidad + nuevaCantidad;
+            if (nextQty <= 0) {
+                //remove
+                const copy = [...prev];
+                copy.splice(idx, 1);
+                return copy;
+            }
+            if(nextQty > max) {
+                Alert.alert('Sin stock', `Stock disponible: ${max}`);
+                return prev;
+            }
+
+            const copy = [...prev];
+            copy[idx] = {
+                ...item, 
+                cantidad : nextQty,
+                subtotal : calcularSubtTotal(item.precioUnitario, nextQty)
+            }
+            return copy;
+        })
+    }
+
+    async function crearCliente() {
+        if (!nuevoNombre.trim()) {
+            Alert.alert('Falta info', 'El nombre es requerido');
+            return;
+        }
+        try {
+            
+            const res = await apiFetch<Cliente>('/api/clientes', {
+                method : 'POST', 
+                body : {
+                    nombre : nuevoNombre.trim(),
+                    telefono : nuevoTel.trim() || undefined,
+                    direccion : nuevoDir.trim()
+                }
+            })
+            
+            const direcciones = await crearDireccion(res.id);
+            const c : Cliente = {
+                id : res.id,
+                nombre : res.nombre,
+                telefono : res.telefono,
+                direccion : direcciones
+            }
+
+            setClientes((p) => [c, ...p]);
+            setClientesSel(c);
+
+
+            setNuevoNombre("");
+            setNuevoTel("");
+            setModalCliente(false);
+        } catch (err) {
+            Alert.alert('Error', 'No se pudo crear el cliente');
+        }
+    }
+
+    async function crearDireccion (clienteId : number) {
+        if (!nuevoDir.trim()) {
+            Alert.alert('Falta info', 'La direccion es requerida');
+            return;
+        }
+        try {
+            const res = await apiFetch<Direccion>('/api/direcciones', {
+                method : 'POST', 
+                body : {
+                    direccion : nuevoDir.trim(),
+                    clienteId : clienteId
+                }
+            })
+            const d : Direccion= {
+                id : res.id,
+                direccion : res.direccion,
+                clienteId : res.clienteId
+            }
+            setDireccion(d);
+            setNuevoDir("");
+            return d; 
+        } catch (err) {
+            Alert.alert('Error', 'No se pudo crear la direccion');
+        }
+    }
+
+    async function getDireccionByClienteId(clienteId: number){
+        return apiFetch<Direccion[]> (`/api/direcciones/cliente/${clienteId}`)
+    }
+    
+    async function goPrefactura() {
+        if(!clientesSel){
+            Alert.alert('Falta cliente', 'Selecciona un cliente para continuar');
+            return; 
+        }
+        if(items.length === 0) {
+            Alert.alert('Falta productos', 'Agrega al menos un producto para continuar');
+            return;
+        }
+
+        const direcciones = await getDireccionByClienteId(clientesSel.id); 
+        const direccionStr = direcciones?.[0]?.direccion || ""
+        setDireccion2(direccionStr);
+
+        const bodyPrefactura = {
+            cliente: clientesSel.nombre.trim(),
+            telefono: clientesSel.telefono?.trim() || "",
+            // Usamos la propiedad direccion del objeto Direccion
+            direccion: direccionStr 
+        };
+        try {
+            console.log("BODY PREF:", bodyPrefactura);
+            // 2. Intentamos crear la prefactura
+            const prefactura = await apiFetch<Prefactura>('/api/preFacturas', {
+                method: "POST",
+                body: bodyPrefactura
+            });
+
+            // 3. SOLO SI recibimos una respuesta válida y un ID, seguimos con los productos
+            if (prefactura && prefactura.id) {
+                await apiFetch<PrefacturaProductos>('/api/preFacturaProductos', {
+                    method: "POST",
+                    body: {
+                        preFacturaId: prefactura.id,
+                        productos: items.map(it => ({
+                            productoId: Number(it.productoId),
+                            talleId: Number(it.talleId),
+                            colorId: Number(it.colorId),
+                            cantidad: Number(it.cantidad)
+                        }))
+                    }
+                });
+                navigation.navigate('Prefactura', { 
+                    draft: { ...draft, direccion: direccionStr } 
+                });
+            } else {
+                console.error("El servidor respondió pero no devolvió un ID de prefactura.");
+            }
+
+        } catch (err : any) {
+            // Aquí verás el error real en la consola sin que se rompa la app
+            console.log("STATUS:", err?.response?.status);
+            console.log("DATA:", err?.response?.data);
+            console.log("HEADERS:", err?.response?.headers);
+            throw err;
+        }
+    }
+    const variantesFiltradas = useMemo(() => {
+        const q = qVar.trim().toLowerCase(); 
+        if (!q) return variantes; 
+
+        return variantes.filter((sp) => {
+            const prod = sp.producto?.nombre?.toLowerCase() ?? ""; 
+            const col = sp.color?.nombre?.toLowerCase() ?? "";
+            const tal = sp.talle?.nombre?.toLowerCase() ?? "";
+            return prod.includes(q) || col.includes(q) || tal.includes(q)
+        })
+    }, [qVar, variantes])
+
+    const columns = isSmall ? 1 : 2;
     return ( 
         <View style = {{flex : 1, padding : 16}}>
             <Text style = {{fontSize : 18, fontWeight : "800"}}>Armar pedido</Text>
-            <Text style = {{color : "#555", fontWeight : "700", marginTop: 4}}>Peodop : {pedidoId}</Text>
-
-            {/*Buscar */}
-            <View style = {{marginTop: 14}}>
-                <Text style = {{fontWeight : "700"}}>Buscar producto</Text>
-                <TextInput
-                    value = {query}
-                    onChangeText={setQuery}
-                    placeholder="Ej: Delantal..."
-                    style = {{borderWidth : 1, borderColor : "#ddd", borderRadius : 10, padding : 12, marginTop : 8 }}
-                />
-                <View style = {{flexDirection : "row", gap : 10, marginTop: 10}}>
-                    <TextInput
-                        value = {cantidad}
-                        onChangeText={setCantidad}
-                        keyboardType="numeric"
-                        placeholder="Cant."
-                        style = {{flex : 0.3, borderWidth : 1, borderColor : "#ddd", borderRadius : 10, padding : 12}}
-                    />
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate("BarcodeScanScreen", {pedidoId})}
-                        style = {{flex : 0.7, backgroundColor : "#111", padding : 12, borderRadius: 10, alignItems: "center"}}
-                    >
-                        <Text style = {{color : "white", fontWeight : "800"}}> Escanear codigo</Text>
-                    </TouchableOpacity>
+            {/* CLIENTE */}
+            <View style = {styles.section}>
+                <View style = {styles.rowBetween}>
+                    <Text style = {styles.sectionTitle}>Cliente</Text>
+                    <Pressable onPress = {() => setModalCliente(true)} style = {styles.btnGhost}>
+                        <Text style = {styles.btnGhostText}>+ Agregar</Text>
+                    </Pressable>
                 </View>
-            </View>
-            {/*Resultados */}
-            {resultados?.length && (
-                <View style = {{marginTop : 12, padding: 12, borderWidth : 1, borderColor : "#eee", borderRadius: 12}}>
-                    <Text style = {{fontWeight :"800", marginBottom : 8}}>Resultados</Text>
-                    {resultados?.map((p) => (
-                        <TouchableOpacity style = {{paddingVertical: 10}} key={p.id} onPress={() => onAgregarBusqueda(p.id)}>
-                            <Text style = {{fontWeight : "800"}}>{p.nombre}</Text>
-                            <Text>{formatMoney(p.precio)} · Stock : {p.stock}</Text>
-                            <Text style = {{color : "#333", marginTop : 2}}>Toca para agregar</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
 
-            {/*Items */}
-
-            <View style = {{marginTop : 16, flex: 1}}>  
-                <Text style = {{fontWeight : "800", marginBottom: 8}}>Prodctos del pedido</Text>
                 <FlatList
-                    data = {items}
-                    keyExtractor={(it) => it.id}
-                    renderItem= {({item}) => (
-                        <View style = {{paddingVertical : 10, borderBottomWidth : 2, borderColor : "#eee"}}>
-                            <Text style = {{fontWeight : "700"}}>{item.nombre}</Text>
-                            <Text>{formatMoney(item.precio)} x {item.stock} = {formatMoney(item.precio * item.stock)}</Text>
-                        </View>
-                    )}
-                    ListEmptyComponent={<Text style = {{color : "#666"}}>Todavia no agregaste ningun producto</Text>}
+                    data = {clientes}
+                    keyExtractor={(c) => String(c.id)}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle = {{gap : 8}}
+                    renderItem={({item}) => {
+                        const active = item.id === clientesSel?.id
+                        return (
+                            <Pressable
+                            onPress={() => setClientesSel(item)}
+                            style = {[styles.clientChip, active && styles.clientChipActive]}
+                            >
+                                <Text style = {[styles.clientChipText, active && styles.clientChipTextActive]}>{item.nombre}</Text>
+                            </Pressable>
+                        )
+                    }}
                 />
+            </View>
+            {/*Buscar */}
+            <View style = {styles.section}>
+                <Text style = {styles.sectionTitle}>Producto (Color + talle)</Text>
+                <View style = {styles.searchRow}>
+                    <TextInput
+                        value = {qVar}
+                        onChangeText={setQVar}
+                        placeholder="Buscar por color, talle o producto"
+                        style = {styles.input}
+                        returnKeyType = "search"
+                        onSubmitEditing={() => loadStockProductos()}
+                    />
+                    <Pressable onPress={() => loadStockProductos()} style = {styles.btn}>
+                        <Text style = {styles.btnText}>{loadingVar ? "Cargando..." : "Buscar"}</Text>
+                    </Pressable>
+                </View>
+                <FlatList
+                    data = {variantesFiltradas}
+                    key = {columns}
+                    numColumns={columns}
+                    keyExtractor={(v) => {
+                        console.log(v);
+                        return `${v.productoId}-${v.colorId}-${v.talleId}`;
+                    }}
+                    columnWrapperStyle = {columns > 1 ? {gap : 10} : undefined}
+                    contentContainerStyle = {{gap : 10, paddingTop : 10}}
+                    renderItem = {({item}) => (
+                        <Pressable
+                            onPress = {() => addStockProductoToItems(item)}
+                            style = {[styles.card, columns > 1 && {flex : 1}]}
+                        >
+                            <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
+                            <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
+                            <Text style = {styles.muted}>Stock: {item.stock}</Text>
+                            <Text style = {styles.price}>{formatMoney(item.producto?.precio ?? 0)}</Text> 
+                            <Text style = {styles.tap}>Toca para agregar</Text>
+                        </Pressable>
+                    )}
+                />
+            </View>
+            {/* Items del pedido */}
+            <View style = {styles.section}>
+                <Text style = {styles.sectionTitle}>Items del pedido</Text>
+                {items.length === 0 ? (
+                    <Text style = {styles.mutedItem}>No hay items agregados</Text>
+                ): (
+                    <FlatList
+                        data = {items}
+                        keyExtractor={(it) => `${it.productoId}-${it.talleId}-${it.colorId}`}
+                        contentContainerStyle = {{gap : 10, paddingTop : 10}}
+                        renderItem={({item}) => (
+                            <View style = {styles.itemRow}>
+                                <View style = {{flex : 1}}>
+                                    <Text style = {styles.itemName}>{item.nombreProducto}</Text>
+                                    <Text style = {styles.muted}>{item.colorNombre} • {item.talleNombre}</Text>
+                                    <Text style = {styles.price}>{formatMoney(item.precioUnitario ?? 0)} c/u</Text>
+                                </View>
+                                <View style = {styles.qtyBox}>
+                                    <Pressable onPress = {() => changeQty(item.productoId, item.talleId, item.colorId, -1)} style = {styles.qtyBtn}>
+                                        <Text style = {styles.qtyBtnText}>-</Text>
+                                    </Pressable>
+                                    <Text style = {styles.qty}>{item.cantidad}</Text>
+                                    <Pressable onPress = {() => changeQty(item.productoId, item.talleId, item.colorId, +1)} style = {styles.qtyBtn}>
+                                        <Text style = {styles.qtyBtnText}>+</Text>
+                                    </Pressable>
+                                </View>
+
+                                <View style = {{width : 110, alignItems : "flex-end"}}>
+                                    <Text style = {styles.price}>{formatMoney(item.subtotal ?? 0)}</Text>
+                                </View>
+                            </View>
+                        )}
+                    />
+                )}
             </View>
 
             {/*Footer */}
-            <View style = {{marginTop: 10}}>
-                <Text style = {{fontSize : 18, fontWeight : "800"}}>Total : {formatMoney(total)}</Text>
+            <View style = {styles.footer}>
+                <Text style = {styles.muted}>Total:</Text>
+                <Text style = {{fontSize : 18, fontWeight : "800"}}>{formatMoney(total)}</Text>
                 <TouchableOpacity 
-                    onPress={() => navigation.navigate("Prefactura", {pedidoId})}
+                    onPress={goPrefactura}
                     style = {{marginTop : 10, backgroundColor : "#111", padding : 14, borderRadius : 12, alignItems : "center"}}
                 >
-                    <Text style = {{color : "white", fontWeight : "800"}}>Ver prefactura</Text>
+                    <Text style = {{color : "white", fontWeight : "800"}}>Generar prefactura</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Modal nuevo cliente */}
+            <Modal visible={modalCliente} transparent animationType = "fade" onRequestClose = {() => setModalCliente(false)}>
+                <View style = {styles.modalBackdrop}>
+                    <View style = {styles.modalCard}>
+                        <Text style = {styles.modalTitle}>Agregar cliente</Text>
+                        <TextInput value = {nuevoNombre} onChangeText={setNuevoNombre} placeholder="Nombre" style = {styles.input}/>                  
+                        <TextInput value = {nuevoTel} onChangeText={setNuevoTel} placeholder="Telefono" style = {styles.input}/>                  
+                        <TextInput value = {nuevoDir} onChangeText={setNuevoDir} placeholder="Direccion" style = {styles.input}/>     
+                        <View style = {styles.rowBetween}>
+                            <Pressable onPress={() => setModalCliente(false)} style = {styles.btnGhost}>
+                                <Text style = {styles.btnGhostText}>Cancelar</Text>
+                            </Pressable>
+
+                            <Pressable onPress={crearCliente} style = {[styles.btn, styles.btnPrimary]}>
+                                <Text style = {styles.btnText}>Guardar</Text>
+                            </Pressable>
+                        </View>
+
+                        {Platform.OS === "android" ? <View style = {{height : 6}} /> : null}
+                    </View>
+                </View>
+            </Modal>
         </View>
     )
 }  
+
+
+
+const styles = StyleSheet.create({
+    container: { flex: 1, padding: 14, backgroundColor: "#0b0b0d" },
+    title: { fontSize: 22, fontWeight: "800", color: "white", marginBottom: 10 },
+
+    section: { marginTop: 12 },
+    sectionTitle: { color: "black", fontSize: 16, fontWeight: "700" },
+
+    rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+
+    input: {
+        backgroundColor: "#15151a",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        color: "white",
+        flex: 1,
+    },
+
+    btn: {
+        backgroundColor: "#2a2a33",
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        marginLeft: 10,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    btnPrimary: { backgroundColor: "#3b82f6" },
+    btnText: { color: "white", fontWeight: "700" },
+
+    btnGhost: { paddingHorizontal: 10, paddingVertical: 8 },
+    btnGhostText: { color: "#9aa4b2", fontWeight: "700" },
+
+    clientChip: {
+        backgroundColor: "#8f8f95",
+        borderColor: "#2a2a33",
+        borderWidth: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 999,
+    },
+    clientChipActive: { borderColor: "#3b82f6", backgroundColor: "black"},
+    clientChipText: { color: "#cbd5e1", fontWeight: "700" },
+    clientChipTextActive: { color: "white" },
+
+    searchRow: { flexDirection: "row", marginTop: 10 },
+
+    card: {
+        backgroundColor: "#3F403F",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 16,
+        padding: 12,
+    },
+    cardTitle: { color: "white", fontWeight: "800" },
+    muted: { color: "#CED0CE", marginTop: 2 },
+    price: { color: "white", fontWeight: "800", marginTop: 6 },
+    tap: { color: "#3b82f6", fontWeight: "700", marginTop: 10 },
+
+    itemRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#15151a",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 16,
+        padding: 12,
+        gap: 10,
+    },
+    itemName: { color: "white", fontWeight: "800" },
+
+    qtyBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 14,
+        overflow: "hidden",
+    },
+    qtyBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#1b1b22" },
+    qtyBtnText: { color: "white", fontWeight: "900", fontSize: 16 },
+    qty: { color: "white", fontWeight: "800", paddingHorizontal: 12 },
+
+    subtotal: { color: "white", fontWeight: "900" },
+
+    footer: {
+        marginTop: "auto",
+        paddingTop: 12,
+        paddingBottom: 4,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+    },
+    total: { color: "white", fontSize: 18, fontWeight: "900" },
+
+    modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 16 },
+    modalCard: {
+        backgroundColor: "#0f0f14",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 18,
+        padding: 14,
+        gap: 10,
+    },
+    modalTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 6 },
+    mutedItem : {color : "black"}
+})

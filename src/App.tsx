@@ -278,21 +278,21 @@ export default function App(){
           options = {{title : "Editar producto"}}
         
         />
-        {/* <Stack.Screen
+        <Stack.Screen
           name='Prefactura'
           component={PrefacturaScreen}
           options={{title : "Prefactura"}}
-        /> */}
+        />
         <Stack.Screen
           name = "BarcodeScanScreen"
           component={ScanScreen}
           options={{title : "Escaner"}}
         />
-        {/* <Stack.Screen
+        <Stack.Screen
           name='PedidosScreen'
           component={ArmarPedidoScreen}
           options={{title : "Armar pedido"}}
-        /> */}
+        />
         <Stack.Screen
           name = 'ColoresScreen'
           component={ColoresScreen}
