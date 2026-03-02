@@ -1,12 +1,38 @@
 {
   "name": "rn-desktop",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "./src/index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web --offline"
+    "web": "expo start --web",
+    "export-web": "expo export --platform web",
+    "build-electron": "tsc electron/main.ts --outDir electron",
+    "fix-web-paths": "node ./scripts/fix-web-paths.js",
+    "desktop": "npm run export-web && npm run fix-web-paths && npm run build-electron && electron electron/main.js", 
+    "dist-win" : "npm run export-web && npm run fix-web-paths && npm run build-electron && electron-builder --win"
+  },
+  "build": {
+    "appId" : "com.rppro.stock", 
+    "productName" : "RPPpro Stock", 
+    "files" : [
+      "dist/**",
+      "electron/**", 
+      "package.json"
+    ], 
+    "directories" : {
+      "buildResources" : "assets"
+    }, 
+    "win" : {
+      "target" : "nsis"
+    }, 
+    "extraMetadata": {
+      "main" : "./electron/main.js"
+    }
+  },
+  "expo" : {
+    "entry-point" : "./index.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -36,8 +62,11 @@
     "vite": "^7.3.1"
   },
   "devDependencies": {
+    "@types/node": "^25.3.3",
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
+    "electron-builder": "^26.8.1",
+    "typescript": "~5.9.2", 
+    "electron": "^40.6.1"
   },
   "private": true
 }
