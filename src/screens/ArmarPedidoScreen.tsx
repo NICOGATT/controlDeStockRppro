@@ -36,6 +36,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
     const [items, setItems] = useState<PedidoItem[]>([]);
     const total = useMemo(() => calcTotal(items), [items]);
+    
 
     const draft : PedidoDraft = useMemo(() => ({
         codigo : generarCodigoPedido(), 
@@ -360,18 +361,22 @@ export default function ArmarPedidoScreen({navigation} : any) {
                     }}
                     columnWrapperStyle = {columns > 1 ? {gap : 10} : undefined}
                     contentContainerStyle = {{gap : 10, paddingTop : 10}}
-                    renderItem = {({item}) => (
-                        <Pressable
-                            onPress = {() => addStockProductoToItems(item)}
-                            style = {[styles.card, columns > 1 && {flex : 1}]}
-                        >
-                            <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
-                            <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
-                            <Text style = {styles.muted}>Stock: {item.stock}</Text>
-                            <Text style = {styles.price}>{formatMoney(item.producto?.precio ?? 0)}</Text> 
-                            <Text style = {styles.tap}>Toca para agregar</Text>
-                        </Pressable>
-                    )}
+                    renderItem = {({item}) => {
+                        console.log("ITEM VARIANTE:", JSON.stringify(item, null, 2))
+
+                        return(
+                            <Pressable
+                                onPress = {() => addStockProductoToItems(item)}
+                                style = {[styles.card, columns > 1 && {flex : 1}]}
+                            >
+                                <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
+                                <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
+                                <Text style = {styles.muted}>Stock: {item.stock}</Text>
+                                <Text style = {styles.price}>{formatMoney(item.producto?.precio ?? 0)}</Text> 
+                                <Text style = {styles.tap}>Toca para agregar</Text>
+                            </Pressable>
+                        );
+                    }}
                 />
             </View>
             {/* Items del pedido */}

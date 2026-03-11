@@ -19,6 +19,7 @@ export default function AgregarVariante({visible, producto, colores, talles, onC
     const [colorId, setColorId] = useState<number>(colores[0]?.id ?? 0);
     const [talleId, setTalleId] = useState<number>(talles[0]?.id ?? 0);
     const [stock, setStock] = useState<string>("");
+    const [precio, setPrecio] = useState(""); 
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -32,6 +33,7 @@ export default function AgregarVariante({visible, producto, colores, talles, onC
     const stockNum = Number(stock); 
     const nombreColor = colores.find(c => c.id === colorId)?.nombre ?? "";
     const nombreTalle = talles.find(t => t.id === talleId)?.nombre ?? "";
+    const precioNum = Number(precio)
 
     const onSave = async() => {
         if(!producto) return;
@@ -50,7 +52,8 @@ export default function AgregarVariante({visible, producto, colores, talles, onC
                         {
                             color : nombreColor, 
                             talle : nombreTalle,
-                            cantidad : stockNum
+                            cantidad : stockNum, 
+                            precio : precioNum
                         }
                     ]
                 }
@@ -72,34 +75,40 @@ export default function AgregarVariante({visible, producto, colores, talles, onC
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Agregar Variante •{producto.nombre}</Text>
                     {/* Aca usar Picker (o tu selector) */}
+                    <View style = {styles.topRow}>
+                        <View style = {{gap : 6}}>
+                            <Text>Color</Text>
+                            {colores.map(c => (
+                                <TouchableOpacity
+                                    key={c.id}
+                                    onPress={() => {
+                                        setColorId(c.id);
+                                    }}
+                                    style = {styles.boton}
+                                >
+                                    <Text>{c.nombre}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <View style = {{gap : 6}}>
+                            {/* Talle */}
+                            <Text>Talle</Text>
+                            {talles.map(t => (
+                                        <TouchableOpacity
+                                            key={t.id}
+                                            onPress={() => {
+                                                setTalleId(t.id);
+                                            }}
+                                            style = {styles.boton}
+                                        >
+                                            <Text>{t.nombre}</Text>
+                                        </TouchableOpacity>
+                                        
+                                    ))
+                            }
+                        </View>
+                    </View>
                     {/* Color */}
-                    <Text>Color</Text>
-                    {colores.map(c => (
-                        <TouchableOpacity
-                            key={c.id}
-                            onPress={() => {
-                                setColorId(c.id);
-                            }}
-                            style = {styles.boton}
-                        >
-                            <Text>{c.nombre}</Text>
-                        </TouchableOpacity>
-                    ))}
-                    {/* Talle */}
-                    <Text>Talle</Text>
-                   {talles.map(t => (
-                            <TouchableOpacity
-                                key={t.id}
-                                onPress={() => {
-                                    setTalleId(t.id);
-                                }}
-                                style = {styles.boton}
-                            >
-                                <Text>{t.nombre}</Text>
-                            </TouchableOpacity>
-                            
-                        ))
-                    }
                     {/* Stock */}
                     <Text>Stock</Text>
                     <TextInput
@@ -107,6 +116,13 @@ export default function AgregarVariante({visible, producto, colores, talles, onC
                         value = {stock}
                         onChangeText = {setStock}
                         placeholder="Cantidad en stock"
+                        style = {styles.input}
+                    />
+                    <Text>Precio</Text>
+                    <TextInput
+                        keyboardType="numeric"
+                        value = {precio}
+                        onChangeText={(text) => setPrecio(text.replace(/[^0-9]/g, ""))}
                         style = {styles.input}
                     />
                     <View style = {styles.buttonContainer}>

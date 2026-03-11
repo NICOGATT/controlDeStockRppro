@@ -52,7 +52,6 @@
     "react-native": "0.81.5",
     "react-native-barcode-builder": "^2.0.0",
     "react-native-barcode-creator": "^0.1.8",
-    "react-native-camera": "^4.2.1",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

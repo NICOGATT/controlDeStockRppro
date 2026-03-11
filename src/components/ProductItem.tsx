@@ -4,6 +4,7 @@ import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
 import { ColorYTalle } from "../types/ColorYTalle";
 import { apiFetch } from "../api/apiClient";
+import { formatMoney } from "../utils/pedido";
 
 interface ProductProps {
     producto : Product; 
@@ -18,10 +19,7 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
 
     const stockBajo = stockTotal <= 5
     const disableQuitar = stockTotal <= 0
-
     
-
-
     async function actualizarStock(
         productoId : number , 
         colorId : number, 
@@ -42,7 +40,6 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
         <View>
             <Text style = {styles.product}>{`${producto.nombre}`}</Text>
             <Text style = {[styles.cantidad, stockBajo && styles.cantidad0]}>Stock : {stockBajo ? "Stock bajo" : `${stockTotal} unidades`}</Text>
-            <Text style = {styles.precio}>${producto.precio}</Text>
             <Text style = {styles.tipoDePrenda}>{`${producto.tipoDePrenda.nombre}`}</Text>
             <TouchableOpacity onPress={() => onAgregarVariante(producto)} style = {styles.boton}>
                 <Text style = {styles.textButton}>+ Agregar Variante</Text>
@@ -52,6 +49,9 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
                 <View key={index} style = {styles.varianteFila}>
                     <Text style = {styles.varianteTexto}>{v.color?.nombre}</Text>
                     <Text style = {styles.varianteTexto}>Talle : {v.talle?.nombre} - Cantidad : {v.stock}</Text>
+                    {v.precio != null && (
+                        <Text style = {styles.varianteTexto}>{formatMoney(v.precio)}</Text>
+                    ) }
                     {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
                     <TouchableOpacity onPress={() => onAgregar(v)} style = {styles.boton}>
                         <Text style = {styles.textButton}>+Agregar</Text>

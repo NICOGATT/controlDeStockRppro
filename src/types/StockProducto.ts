@@ -6,7 +6,8 @@ export interface StockProducto {
     productoId : number; 
     talleId : number; 
     colorId: number; 
-    stock : number; 
+    stock : number;
+    precio : number; 
 
     //Opcional para UI
     producto? : Product; 

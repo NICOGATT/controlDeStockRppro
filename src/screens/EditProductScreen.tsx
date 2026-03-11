@@ -1,18 +1,21 @@
 import {useEffect, useMemo, useState} from "react" ; 
 import {View, TextInput,  Pressable, Text, StyleSheet, Alert, ActivityIndicator} from "react-native";
 import { apiFetch } from "../api/apiClient";
+import { TipoDePrenda } from "../types/TipoDePrenda";
 
 export default function EditProductScreen ({route, navigation} : any) {
     const {producto} = route.params;
 
     const [loading, setLoading] = useState(true)
-    const [nombre, setNombre] = useState(producto?.nombre ?? "");
-    const [tipoDePrenda, setTipoDePrenda] = useState(producto?.tipoDePrenda?.nombre ?? "");
-    const [precio, setPrecio] = useState(String(producto?.precio ?? 0));
+    const [form, setForm] = useState({
+        nombre : producto?.nombre ?? "", 
+        precio : String(producto?.precio ?? ""), 
+        tipoDePrenda : producto?.tipoDePrenda ?? null as TipoDePrenda | null, 
+    })
 
-    const nombreValido = nombre.length > 0;
-    const tipoDePrendaValido = tipoDePrenda.trim().length > 0;
-    const precioNumber = Number(precio); 
+    const nombreValido = form.nombre.length > 0;
+    const tipoDePrendaValido = form.tipoDePrenda?.nombre.trim().length > 0;
+    const precioNumber = Number(form.precio); 
 
 
     const precioValido = !isNaN(precioNumber) && precioNumber > 0;
@@ -28,9 +31,13 @@ export default function EditProductScreen ({route, navigation} : any) {
         (async () => {
             try {
                 setLoading(true)
-                const data = await apiFetch<{id : number, nombre : string, precio : number}>(`/api/productos/${producto.id}`)
-                setNombre(data.nombre ?? "");
-                setPrecio(String(data.precio ?? ""));
+                const data = await apiFetch<{id : number, nombre : string, precio : number, tipoDePrenda : TipoDePrenda}>(`/api/productos/${producto.id}`)
+                setForm(prev => ({
+                    ...prev,
+                    nombre: data.nombre ?? "",
+                    precio: String(data.precio ?? ""),
+                    tipoDePrenda: data.tipoDePrenda ?? null,
+                }));
             } catch (error) {
                 console.log('Error cargando producto ', error); 
                 Alert.alert('Error', 'No se pudo cargar el producto'); 
@@ -41,15 +48,21 @@ export default function EditProductScreen ({route, navigation} : any) {
         })();
     }, [producto])
 
+    const handleChange = (campo : string, valor : string) => {
+        setForm(prev => ({
+            ...prev, 
+            [campo] : valor
+        }))
+    }
     async function handleSave() {
         if(!formValido) return;
         try {
-            await apiFetch<{id : number, nombre : string, precio : number}>(`/api/productos/${producto.id}`, {
+            await apiFetch<{id : string, nombre : string, precio : number, tipoDePrenda : TipoDePrenda}>(`/api/productos/${producto.id}`, {
                 method : "PUT", 
                 body : {
-                    nombre : nombre.trim(), 
-                    tipoDePrenda : tipoDePrenda,
-                    precio : Number(precio), 
+                    // nombre : form.nombre.trim(), 
+                    tipoDePrenda : form.tipoDePrenda?.nombre,
+                    precio : Number(form.precio)
                 },
             }); 
             navigation.goBack()
@@ -63,22 +76,30 @@ export default function EditProductScreen ({route, navigation} : any) {
     return (
         <View style = {styles.container}>
             <TextInput
-                value = {nombre} 
-                onChangeText={setNombre} 
+                value = {form.nombre} 
+                onChangeText={(text) => handleChange("nombre", text)} 
                 placeholder="Nombre"
                 style = {styles.input}
             />
             <TextInput
-                value = {precio} 
-                onChangeText={setPrecio} 
+                value = {form.precio} 
+                onChangeText={(text) => handleChange('precio', text)} 
                 placeholder="Precio"
                 keyboardType="numeric"
                 style = {styles.input}
             />
 
             <TextInput 
-                value = {tipoDePrenda}
-                onChangeText={setTipoDePrenda}
+                value = {form.tipoDePrenda?.nombre ?? ""}
+                onChangeText={(text) => {
+                    setForm(prev => ({
+                        ...prev, 
+                        tipoDePrenda : {
+                            ...prev.tipoDePrenda!, 
+                            nombre : text
+                        }
+                    }))
+                }}
                 placeholder="Tipo de Prenda"
                 style = {styles.input}
             />

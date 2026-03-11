@@ -10,7 +10,8 @@ import { Talle } from "../types/Talle";
 export default function AddProductsScreen ({navigation} : any) {
     const [nombre, setNombre] = useState(""); 
     const [precio, setPrecio] = useState(""); 
-    const [tipoDePrenda, setTipoDePrenda] = useState<TipoDePrenda | null>(null)
+    const [tipoDePrenda, setTipoDePrenda] = useState<TipoDePrenda | null>(null); 
+    const [nroArticulo, setNroArticulo] = useState(""); 
     
     const [colores, setColores] = useState<Color[]> ([]);
     const [talles, setTalles] = useState<Talle[]>([]);
@@ -19,9 +20,10 @@ export default function AddProductsScreen ({navigation} : any) {
     const [talle, setTalle] = useState<Talle | null>(null); 
     const [cantidad, setCantidad] = useState("");
     
-    const [colorSel, setColorSel] = useState('')
-    const [talleSel, setTalleSel] = useState('')
     const [variantes, setVariantes] = useState<ColorYTalle[]> ([]);
+    const [nombreColor, setNombreColor] = useState("");
+    const [nombreTalle, setNombreTalle] = useState("");
+    const [precioVariante, setPrecioVariante] = useState("");
 
     const nombreValido = nombre.trim().length > 0;
 
@@ -29,8 +31,14 @@ export default function AddProductsScreen ({navigation} : any) {
     
     const precioValido = !isNaN(Number(precio)) && Number(precio) > 0;
 
+    const nroDeArticuloValido = nroArticulo.trim().length > 0; 
 
-    const formValido = nombreValido && variantesValidas && precioValido;
+    const precioVarianteValido = variantes.every((v) => Number(v.precio) > 0); 
+
+    const tieneTallesConPrecioPropio = variantes.some((v) => v.talle.nombre.trim().toLowerCase() !== "unico")
+
+    const formValido = nombreValido && variantesValidas && precioValido && nroDeArticuloValido && (tieneTallesConPrecioPropio ? precioVarianteValido : precio);
+
 
     useEffect(() => {
         (async () => {
@@ -57,33 +65,17 @@ export default function AddProductsScreen ({navigation} : any) {
             await apiFetch<any>('/api/productos', {
                 method : "POST", 
                 body : {
+                    id : nroArticulo.trim(),
                     nombre : nombre.trim(),
-                    precio : Number(precio),
                     colorYTalle : variantes.map(v => ({
                         color : v.color.nombre, 
                         talle : v.talle.nombre, 
-                        cantidad : Number(v.cantidad) 
+                        cantidad : Number(v.cantidad), 
+                        precio : v.precio ? Number(v.precio) : Number(precio)
                     })), 
                     tipoDePrenda : tipoDePrenda?.nombre ?? null //
                 }
             })
-
-            //2) Crear stock inicial (MVP con talle/color por defecto)
-            // const pId = producto.id || producto
-
-            // await Promise.all(
-            //     variantes.map((v) => {
-            //         apiFetch('/api/stockProductos', {
-            //             method : "POST", 
-            //             body : {
-            //                 productoId : pId, 
-            //                 talleId : v.talle.id,
-            //                 colorId : v.color.id,
-            //                 cantidad : v.cantidad
-            //             }
-            //         })
-            //     })
-            // )
             navigation.goBack();
         } catch (e : any) {
             console.log('Status : ', e?.response?.status);
@@ -93,41 +85,118 @@ export default function AddProductsScreen ({navigation} : any) {
         }
     }
 
-    function agregarVariante(){
+    async function agregarVariante(){
         const q = Number(cantidad);
+        const precioFinal = precioVariante ? Number(precioVariante) : null; 
         console.log('color: ', color);
         console.log('talle: ', talle);
         console.log('cantidad ', cantidad);
-        if (!color || !talle) return;
         if(!Number.isFinite(q) || q <= 0) return;  
+        
+
+       try {
+        let colorFinal : Color | null = color; 
+        let talleFinal : Talle | null = talle; 
+        // Si no selecciono color, pero escribio uno 
+        if (!colorFinal && nombreColor.trim()) {
+            colorFinal = await createColor(nombreColor); 
+        }
+
+        if(!talleFinal && nombreTalle.trim()){
+            talleFinal = await createTalle(nombreTalle); 
+        }
+
+        if (!colorFinal || !talleFinal) {
+            console.log ('Falta color y talle'); 
+            return ; 
+        }
 
         setVariantes((prev) => {
-            const idx = prev.findIndex((v) => v.color.id === color.id && v.talle.id === talle.id); 
-            if (idx === -1){
-                return [...prev, {color : color, talle : talle, cantidad : q}]
-            }
+            const idx = prev.findIndex((v) => v.color.id === colorFinal!.id && v.talle.id === talleFinal!.id)
 
+            if (idx === -1) {
+                return [...prev, {color : colorFinal!, talle : talleFinal!, cantidad : q, precio : precioFinal}]
+            }
+            
             const copia = [...prev]; 
-            copia[idx] = {...copia[idx], cantidad : copia[idx].cantidad + q};
+            copia[idx] = {
+                ...copia[idx], 
+                cantidad : copia[idx].cantidad + q
+            }; 
             return copia
         })
+
+        //Refrescar Catalogo pos si se crearon nuevos
+        await cargarColores(); 
+        await cargarTalles() ; 
 
         //Limpiar
         setColor(null); 
         setTalle(null); 
         setCantidad("");
+        setNombreColor(""); 
+        setNombreTalle("");
+       } catch (error) {
+        console.log('Error agregando variante:', error); 
+       }
+
+    }
+
+    async function createColor(nombre : string) : Promise<Color>{
+        return await apiFetch<Color>('/api/colores', {
+            method :  "POST", 
+            body : {
+                nombre : nombre.trim()
+            }
+        })
+    }
+
+    async function createTalle (nombre : string) : Promise <Talle> {
+        return await apiFetch<Talle>('/api/talles', {
+            method : "POST", 
+            body : {
+                nombre : nombre.trim()
+            }
+        })
+    }
+
+    async function cargarColores() {
+        try {
+            const data = await apiFetch<Color[]>('/api/colores'); 
+            setColores(data)
+        } catch (error) {
+            console.log('Error cargando colores', error)
+        }
+    }
+    async function cargarTalles() {
+        try {
+            const data = await apiFetch<Talle[]>('/api/talles'); 
+            setTalles(data)
+        } catch (error) {
+            console.log('Error cargando talles', error)
+        }
     }
 
     return (
         <View style = {styles.container}>
             <Text style = {styles.title}>Agregar Producto</Text>
+            {/* Numero de articulo */}
+            <View style = {{gap : 6}}>
+                <Text style = {styles.label}>Nro de articulo</Text>
+                <TextInput
+                    placeholder="Ej : RPPRO2025"
+                    value={nroArticulo}
+                    autoFocus
+                    onChangeText={(text) => setNroArticulo(text)}
+                    style = {[styles.input, !nroDeArticuloValido && styles.inputError]}
+                />
+            </View>
             {/* Nombre */}
             <View style ={{gap : 6}}>
                 <Text style = {styles.label}>Nombre</Text>
                 <TextInput 
                     placeholder="Ej : Remera"
                     value={nombre}
-                    autoFocus
                     onChangeText={(text) => setNombre(text)}
                     style = {[styles.input, !nombreValido && styles.inputError]}
                 />
@@ -148,63 +217,89 @@ export default function AddProductsScreen ({navigation} : any) {
             <View  style = {styles.divider}/>
             
             <Text style = {styles.subtitle}>Variantes (Color + Talle + Cantidad)</Text>
+            
+            <View style = {styles.containerVariante}>
+                <View style = {styles.topRow}>
+                    <View style = {styles.box}>
+                        <View style = {{gap : 6}}>
+                            <Text style = {styles.label}>Color {colores?.length}</Text>
+                            <View style = {styles.chipsRow}>
+                                {colores.map((c) => {
+                                    const select = color?.id === c.id; 
+                                    return (
+                                        <Pressable
+                                            key={c.id}
+                                            onPress={() => setColor(c)}
+                                            style = {[styles.select, {backgroundColor : select ? "#111" : "transparent"}]}
+                                        >
+                                            <Text style = {{color : select ? "white" : "black", fontWeight : select ? "700" : "400"}}>{c.nombre}</Text>
+                                        </Pressable>
+                                    )
+                                })}
+                            </View>
+                        </View>
+                        {/* Talle */}
+                        <View style = {{gap: 6}}>
+                            <Text style = {styles.label}>Talle</Text>
+                            <View style = {styles.chipsRow}>
+                                {talles.map((t) => {
+                                    const selected = talle?.id === t.id
+                                    return (
+                                        <Pressable
+                                            key={t.id}
+                                            onPress={() => setTalle(t)}
+                                            style = {[styles.select, {backgroundColor : selected ? "#111" : "transparent"}]}
+                                        >
+                                            <Text style = {{color : selected ? "white" : "black", fontWeight : selected ? "700" : "400"}}>{t.nombre}</Text>
+                                        </Pressable>
+                                    )
+                                })}
+                            </View>
+                        </View>
+                    </View>
 
-            {/* Colores */}
-            <View style = {{gap : 6}}>
-                <Text style = {styles.label}>Color {colores?.length}</Text>
-                <View style = {styles.chipsRow}>
-                    {colores.map((c) => {
-                        const select = color?.id === c.id; 
-                        return (
-                            <Pressable
-                                key={c.id}
-                                onPress={() => setColor(c)}
-                                style = {[styles.select, {backgroundColor : select ? "#111" : "transparent"}]}
-                            >
-                                <Text style = {{color : select ? "white" : "black", fontWeight : select ? "700" : "400"}}>{c.nombre}</Text>
-                            </Pressable>
-                        )
-                    })}
+                    {/* Bloque inputs */}
+                    <View style = {styles.box} >
+                        <Text>Nuevo color</Text>
+                        <TextInput
+                            placeholder="Ej: Rojo, Azul, etc..."
+                            value={nombreColor}
+                            onChangeText = {setNombreColor}
+                            style = {styles.input}
+                        />
+                        <Text>Nuevo talle</Text>
+                        <TextInput
+                            placeholder="Ej: L,XL,..."
+                            value={nombreTalle}
+                            onChangeText={setNombreTalle}
+                            style = {styles.input}
+                        />
+                        <Text>Precio</Text>
+                        <TextInput
+                            placeholder="Ej: 27000, 25000, ..."
+                            value = {precioVariante}
+                            onChangeText={(text) => setPrecioVariante(text.replace(/[^0-9]/g, ""))}
+                            keyboardType="numeric"
+                            style = {styles.input}
+                        />
+                    </View>
+                </View>
+                <View style = {styles.bottomRow}>
+                    <TextInput
+                        placeholder="Ej : 10"
+                        keyboardType="numeric"
+                        value={cantidad}
+                        onChangeText={setCantidad}
+                        style = {styles.cantidad}
+                    />
+                    <Pressable
+                        onPress={() => agregarVariante()}
+                        style = {styles.variante}
+                    >
+                        <Text style = {{color : "white", fontWeight : "700"}}>Agregar variante</Text>
+                    </Pressable>
                 </View>
             </View>
-            {/* Talle */}
-            <View style = {{gap: 6}}>
-                <Text style = {styles.label}>Talle</Text>
-                <View style = {styles.chipsRow}>
-                    {talles.map((t) => {
-                        const selected = talle?.id === t.id
-                        return (
-                            <Pressable
-                                key={t.id}
-                                onPress={() => setTalle(t)}
-                                style = {[styles.select, {backgroundColor : selected ? "#111" : "transparent"}]}
-                            >
-                                <Text style = {{color : selected ? "white" : "black", fontWeight : selected ? "700" : "400"}}>{t.nombre}</Text>
-                            </Pressable>
-                        )
-                    })}
-                </View>
-            </View>
-
-            {/* Cantidad */}
-            <View style = {{gap : 6}}>
-                <Text style = {styles.label}>Cantidad (Stock)</Text>
-                <TextInput
-                    placeholder="Ej : 10"
-                    keyboardType="numeric"
-                    value={cantidad}
-                    onChangeText={setCantidad}
-                    style = {styles.cantidad}
-                />
-            </View>
-            {/* Boton agregar variante */}
-            <Pressable
-                onPress={() => agregarVariante()}
-                style = {styles.variante}
-            >
-                <Text style = {{color : "white", fontWeight : "700"}}>Agregar variante</Text>
-            </Pressable>
-
             {/* Lista de variantes */}
             <View style = {{gap : 8, marginTop: 6}}>
                 {variantes.length === 0 ? (
@@ -236,6 +331,7 @@ export default function AddProductsScreen ({navigation} : any) {
                     onChangeText={(texto) => {
                         setTipoDePrenda(texto ? {...tipoDePrenda, nombre : texto} as TipoDePrenda : null)
                     }}
+                    style = {styles.input}
                 />
             </View>
             <Pressable onPress={handleSave} disabled = {!formValido} style = {[
@@ -313,7 +409,8 @@ const styles = StyleSheet.create({
         padding : 12, 
         borderRadius : 10, 
         alignItems : "center", 
-        marginTop : 4
+        marginTop : 4,
+        justifyContent: "center"
     },
     listaVariantes : {
         borderWidth : 1, 
@@ -326,5 +423,25 @@ const styles = StyleSheet.create({
     quitarText : {
         color : "white", 
         fontWeight : "700"
+    }, 
+    containerVariante : {
+        padding : 16, 
+        gap : 16
+    }, 
+    topRow : {
+        flexDirection : "row", 
+        gap : 12
+    },
+    box : {
+        flex : 1, 
+        borderWidth : 1, 
+        borderColor: "#ddd",
+        borderRadius : 16, 
+        padding: 12, 
+        gap : 8
+    }, 
+    bottomRow: {
+        flexDirection: "row",
+        gap: 12
     }
 })

@@ -13,7 +13,7 @@ function createWindow() {
         win.webContents.openDevTools();
     }
     else {
-        win.loadFile(path.join(__dirname, '..dist/index.html'));
+        win.loadFile(path.join(__dirname, '../dist/index.html'));
     }
 }
 electron_1.app.whenReady().then(createWindow);

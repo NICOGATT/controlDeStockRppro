@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {View, Text, Button, ActivityIndicator, Alert} from "react-native"; 
 import {getProductos} from "../api/Product";
 import { Camera, CameraView } from "expo-camera";
+import { Product } from "../types/Product";
 
 type RouteParams = {
     products : Product[]
@@ -56,7 +57,7 @@ export default function ScanScreen({navigation, route} : any) {
         console.log("IDs en products:", products.map(p => String(p.id)));
         const found = products.find((p) => Number(p.id) === id);
 
-        if (!found) {
+        if (found) {
             Alert.alert("No encontrado", `No existe un producto con id ${id}`);
             return;
         }

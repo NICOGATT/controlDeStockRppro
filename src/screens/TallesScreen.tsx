@@ -20,7 +20,7 @@ export default function TallesScreen({navigation} : any) {
         }
     }
 
-    async function agregarColor() {
+    async function agregarTalle() {
         if (!nombre.trim()) return ; 
         try {
             await apiFetch('/api/talles', {
@@ -35,7 +35,7 @@ export default function TallesScreen({navigation} : any) {
         }
     }
 
-    async function eliminarColor(id : number) {
+    async function eliminarTalle(id : number) {
         try {
             await apiFetch(`/api/talles/${id}`,{method : "DELETE"});
             await cargarTalles(); 
@@ -51,13 +51,13 @@ export default function TallesScreen({navigation} : any) {
             <View style = {styles.fila}>
                 <TextInput
                     style = {styles.input}
-                    placeholder='Ej : Rojo, Azul...'
+                    placeholder='Ej : L, XL....'
                     value={nombre}
                     onChangeText={setNombre}
                 />
                 <Pressable
                     style = {[styles.boton, !nombre.trim() && {opacity : 0.4}]}
-                    onPress={agregarColor}
+                    onPress={agregarTalle}
                     disabled = {!nombre.trim()}
                 >
                     <Text style = {styles.botonTexto}> Agregar</Text>
@@ -70,7 +70,7 @@ export default function TallesScreen({navigation} : any) {
                 renderItem={({item}) => (
                     <View style = {styles.item}>
                         <Text style = {styles.itemTexto}>{item.nombre}</Text>
-                        <Pressable onPress={() => eliminarColor(item.id)}>
+                        <Pressable onPress={() => eliminarTalle(item.id)}>
                             <Text style = {styles.eliminar}>Eliminar</Text>
                         </Pressable>
                     </View>

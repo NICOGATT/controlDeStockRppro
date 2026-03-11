@@ -21,14 +21,24 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "package": "com.nicosdevs.rpprostock"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-barcode-scanner"
-    ], 
-    "entryPoint" :"./src/index.js"
+    ],
+    "entryPoint": "./src/index.js",
+    "extra": {
+      "eas": {
+        "projectId": "c83c6a94-2386-418e-a587-e8890b2b5e11"
+      }
+    },
+    "owner": "nicosdevs"
   }
 }

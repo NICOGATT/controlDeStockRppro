@@ -4,5 +4,6 @@ import { Talle } from "./Talle";
 export interface ColorYTalle {
     color : Color; 
     talle : Talle; 
-    cantidad : number
+    cantidad : number; 
+    precio? : number | null
 }
