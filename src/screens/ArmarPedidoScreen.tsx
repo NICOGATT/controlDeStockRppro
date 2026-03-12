@@ -71,6 +71,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 colorId : sp.colorId,
                 stock : sp.stock ?? sp.cantidad,
                 producto : sp.producto,
+                precio : sp.precio, 
                 talle : sp.talle,
                 color : sp.color,
             }));
