@@ -1,6 +1,6 @@
-export interface PrefacturaProductos{
+export interface PrefacturaProducto{
     prefacturaId : number; 
-    productoId : number; 
+    productoId : string; 
     talleId : number ;
     colorId : number ; 
     cantidad : number ; 

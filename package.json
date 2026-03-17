@@ -10,29 +10,29 @@
     "export-web": "expo export --platform web",
     "build-electron": "tsc electron/main.ts --outDir electron",
     "fix-web-paths": "node ./scripts/fix-web-paths.js",
-    "desktop": "npm run export-web && npm run fix-web-paths && npm run build-electron && electron electron/main.js", 
-    "dist-win" : "npm run export-web && npm run fix-web-paths && npm run build-electron && electron-builder --win"
+    "desktop": "npm run export-web && npm run fix-web-paths && npm run build-electron && electron electron/main.js",
+    "dist-win": "npm run export-web && npm run fix-web-paths && npm run build-electron && electron-builder --win"
   },
   "build": {
-    "appId" : "com.rppro.stock", 
-    "productName" : "RPPpro Stock", 
-    "files" : [
+    "appId": "com.rppro.stock",
+    "productName": "RPPpro Stock",
+    "files": [
       "dist/**",
-      "electron/**", 
+      "electron/**",
       "package.json"
-    ], 
-    "directories" : {
-      "buildResources" : "assets"
-    }, 
-    "win" : {
-      "target" : "nsis"
-    }, 
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis"
+    },
     "extraMetadata": {
-      "main" : "./electron/main.js"
+      "main": "./electron/main.js"
     }
   },
-  "expo" : {
-    "entry-point" : "./index.js"
+  "expo": {
+    "entry-point": "./index.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -40,6 +40,8 @@
     "@react-navigation/native-stack": "^7.12.0",
     "@types/jsbarcode": "^3.11.4",
     "axios": "^1.13.5",
+    "cli": "^1.0.1",
+    "eas": "^0.1.0",
     "expo": "~54.0.32",
     "expo-barcode-scanner": "^13.0.1",
     "expo-camera": "~17.0.10",
@@ -63,9 +65,9 @@
   "devDependencies": {
     "@types/node": "^25.3.3",
     "@types/react": "~19.1.0",
+    "electron": "^40.6.1",
     "electron-builder": "^26.8.1",
-    "typescript": "~5.9.2", 
-    "electron": "^40.6.1"
+    "typescript": "~5.9.2"
   },
   "private": true
 }

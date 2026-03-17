@@ -1,11 +1,14 @@
+import { Color } from "./Color";
+import { Talle } from "./Talle";
+
 export type PedidoItem = {
-    productoId : number;
+    productoId : string;
     talleId : number; 
     colorId : number; 
     //UI
     nombreProducto : string; 
     talleNombre? : string;
-    colorNombre? : string ; 
+    colorNombre? : string; 
 
     precioUnitario : number; 
     cantidad : number ; 

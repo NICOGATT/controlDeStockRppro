@@ -101,11 +101,11 @@ export default function ProductsScreen({
         const parts = data.trim().split(":");
         if (parts.length < 5 || parts[0] !== "rppro" || parts[1] !== "stock") return null;
       
-        const productoId = Number(parts[2]);
+        const productoId = parts[2];
         const talleId = Number(parts[3]);
         const colorId = Number(parts[4]);
       
-        if ([productoId, talleId, colorId].some(Number.isNaN)) return null;
+        if (productoId === undefined || [talleId, colorId].some(Number.isNaN)) return null;
       
         const producto = productos.find((p) => p.id === productoId);
         if (!producto?.stockProductos) return null;
@@ -118,7 +118,7 @@ export default function ProductsScreen({
         return { producto, stockProducto };
       }
 
-    async function moverStock(variante : StockProducto, productoId : number, delta: number) {
+    async function moverStock(variante : StockProducto, productoId : string, delta: number) {
         try {
             await apiFetch<StockProducto>('/api/stockProductos', {
                 method : "PUT", 
@@ -174,6 +174,9 @@ export default function ProductsScreen({
                         </Pressable>
                         <Pressable onPress={() => navigation.navigate("TallesScreen")}>
                             <Text>Talles</Text>
+                        </Pressable>
+                        <Pressable onPress={() => navigation.navigate("Prefacturas")}>
+                            <Text>Prefacturas</Text>
                         </Pressable>
                     </View>
                 </View>

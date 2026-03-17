@@ -21,7 +21,7 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
     const disableQuitar = stockTotal <= 0
     
     async function actualizarStock(
-        productoId : number , 
+        productoId : string , 
         colorId : number, 
         talleId : number, 
         delta : number 
@@ -38,6 +38,7 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
     }
     return (
         <View>
+            <Text style = {styles.productoid}>{producto.id}</Text>
             <Text style = {styles.product}>{`${producto.nombre}`}</Text>
             <Text style = {[styles.cantidad, stockBajo && styles.cantidad0]}>Stock : {stockBajo ? "Stock bajo" : `${stockTotal} unidades`}</Text>
             <Text style = {styles.tipoDePrenda}>{`${producto.tipoDePrenda.nombre}`}</Text>
@@ -120,6 +121,9 @@ const styles = StyleSheet.create ({
     varianteTexto : {
         fontSize : 12,
         backgroundColor : "gray",
+        fontWeight : "700"
+    }, 
+    productoid : {
         fontWeight : "700"
     }
 });

@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from "react"; 
-import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform} from "react-native"; 
+import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform, ScrollView} from "react-native"; 
 import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
 import { Cliente } from "../types/Cliente";
@@ -9,7 +9,7 @@ import { PedidoDraft } from "../types/PedidoDraft";
 import { apiFetch } from "../api/apiClient";
 import { Direccion } from "../types/Direccion";
 import { Prefactura } from "../types/Prefactura";
-import { PrefacturaProductos } from "../types/PracturaProducto";
+import { PrefacturaProducto } from "../types/PrefacturaProducto";
 
 
 
@@ -64,11 +64,11 @@ export default function ArmarPedidoScreen({navigation} : any) {
         try {
             setLoadingVar(true);
             const res = await getStockProductos();
-            console.log(res[0])
+            console.log("stockProductos API response:", res);
             const mapped : StockProducto[] = res.map((sp : any) => ({
-                productoId : sp.productoId,
-                talleId : sp.talleId, 
-                colorId : sp.colorId,
+                productoId : sp.producto?.id,
+                talleId : sp.talle?.id, 
+                colorId : sp.color?.id,
                 stock : sp.stock ?? sp.cantidad,
                 producto : sp.producto,
                 precio : sp.precio, 
@@ -131,15 +131,15 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 talleNombre : sp.talle?.nombre,
                 colorNombre : sp.color?.nombre,
                 cantidad : 1,
-                precioUnitario : sp.producto?.precio ?? 0,
-                subtotal : calcularSubtTotal(sp.producto?.precio ?? 0, 1)
+                precioUnitario : sp.precio ?? 0,
+                subtotal : calcularSubtTotal(sp.precio ?? 0, 1)
             }
 
             return [...prev, item];
         })
     }
 
-    function changeQty(productoId : number, talleId : number, colorId : number, nuevaCantidad : number) {
+    function changeQty(productoId : string, talleId : number, colorId : number, nuevaCantidad : number) {
         setItems((prev) => {
             const idx = prev.findIndex((it) => it.productoId === productoId && it.talleId === talleId && it.colorId === colorId);
             if(idx < 0) return prev;
@@ -197,7 +197,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
             setClientesSel(c);
 
 
-            setNuevoNombre("");
+            setNuevoNombre("");                                     
             setNuevoTel("");
             setModalCliente(false);
         } catch (err) {
@@ -235,6 +235,50 @@ export default function ArmarPedidoScreen({navigation} : any) {
         return apiFetch<Direccion[]> (`/api/direcciones/cliente/${clienteId}`)
     }
     
+    async function confirmarPedido() {
+        if(!clientesSel){
+            Alert.alert('Falta cliente', 'Selecciona un cliente para continuar');
+            return; 
+        }
+        if(items.length === 0) {
+            Alert.alert('Falta productos', 'Agrega al menos un producto para continuar');
+            return;
+        }
+
+        const productosAgrupados = items.reduce((acc, item) => {
+            const pid = item.productoId;
+            if (!acc[pid]) {
+                acc[pid] = [];
+            }
+            if (item.colorNombre && item.talleNombre) {
+                acc[pid].push({
+                    color: item.colorNombre,
+                    talle: item.talleNombre,
+                    cantidad: item.cantidad
+                });
+            }
+            return acc;
+        }, {} as Record<string, {color: string, talle: string, cantidad: number}[]>);
+
+        try {
+            for (const [productoId, coloresYTalles] of Object.entries(productosAgrupados)) {
+                await apiFetch('/api/stockProductos/reduce-stock', {
+                    method: "POST",
+                    body: {
+                        productoId: Number(productoId),
+                        coloresYTalles
+                    }
+                });
+            }
+            Alert.alert('Éxito', 'Stock reducido correctamente');
+            setItems([]);
+            loadStockProductos();
+        } catch (err) {
+            Alert.alert('Error', 'No se pudo reducir el stock');
+            console.log(err);
+        }
+    }
+
     async function goPrefactura() {
         if(!clientesSel){
             Alert.alert('Falta cliente', 'Selecciona un cliente para continuar');
@@ -265,18 +309,26 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
             // 3. SOLO SI recibimos una respuesta válida y un ID, seguimos con los productos
             if (prefactura && prefactura.id) {
-                await apiFetch<PrefacturaProductos>('/api/preFacturaProductos', {
+                const productosPayload = items.map(it => ({
+                    productoId: String(it.productoId),
+                    talleId: Number(it.talleId),
+                    colorId: Number(it.colorId),
+                    cantidad: Math.floor(Number(it.cantidad))
+                }));
+                
+                console.log("Enviando productos:", JSON.stringify({
+                    preFacturaId: prefactura.id,
+                    productos: productosPayload
+                }, null, 2));
+                
+                const resProductos = await apiFetch<PrefacturaProducto>('/api/preFacturaProductos', {
                     method: "POST",
                     body: {
                         preFacturaId: prefactura.id,
-                        productos: items.map(it => ({
-                            productoId: Number(it.productoId),
-                            talleId: Number(it.talleId),
-                            colorId: Number(it.colorId),
-                            cantidad: Number(it.cantidad)
-                        }))
+                        productos: productosPayload
                     }
                 });
+                console.log("Response productos:", resProductos);
                 navigation.navigate('Prefactura', { 
                     draft: { ...draft, direccion: direccionStr } 
                 });
@@ -306,8 +358,8 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
     const columns = isSmall ? 1 : 2;
     return ( 
-        <View style = {{flex : 1, padding : 16}}>
-            <Text style = {{fontSize : 18, fontWeight : "800"}}>Armar pedido</Text>
+        <ScrollView style = {{flex : 1, padding : 16}} contentContainerStyle={{paddingBottom: 20}} nestedScrollEnabled={true}>
+            <Text style = {{fontSize : 18, fontWeight : "800", marginBottom: 10}}>Armar pedido</Text>
             {/* CLIENTE */}
             <View style = {styles.section}>
                 <View style = {styles.rowBetween}>
@@ -373,7 +425,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
                                 <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
                                 <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
                                 <Text style = {styles.muted}>Stock: {item.stock}</Text>
-                                <Text style = {styles.price}>{formatMoney(item.producto?.precio ?? 0)}</Text> 
+                                <Text style = {styles.price}>{formatMoney(item.precio ?? 0)}</Text> 
                                 <Text style = {styles.tap}>Toca para agregar</Text>
                             </Pressable>
                         );
@@ -426,6 +478,12 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 >
                     <Text style = {{color : "white", fontWeight : "800"}}>Generar prefactura</Text>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                    onPress={confirmarPedido}
+                    style = {{marginTop : 10, backgroundColor : "#22c55e", padding : 14, borderRadius : 12, alignItems : "center"}}
+                >
+                    <Text style = {{color : "white", fontWeight : "800"}}>Confirmar</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Modal nuevo cliente */}
@@ -450,7 +508,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </ScrollView>
     )
 }  
 

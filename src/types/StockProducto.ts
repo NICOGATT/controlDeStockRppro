@@ -3,7 +3,7 @@ import { Product } from "./Product";
 import { Talle } from "./Talle";
 
 export interface StockProducto {
-    productoId : number; 
+    productoId : string; 
     talleId : number; 
     colorId: number; 
     stock : number;

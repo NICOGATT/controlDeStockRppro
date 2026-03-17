@@ -1,4 +1,4 @@
-import { View, TextInput,  Pressable, Text, StyleSheet} from "react-native";
+import { View, TextInput,  Pressable, Text, StyleSheet, ScrollView} from "react-native";
 import { use, useEffect, useState} from "react";
 import { apiFetch } from "../api/apiClient";
 import { ColorYTalle } from "../types/ColorYTalle";
@@ -178,7 +178,7 @@ export default function AddProductsScreen ({navigation} : any) {
     }
 
     return (
-        <View style = {styles.container}>
+        <ScrollView style = {styles.container} contentContainerStyle={{paddingBottom: 20}} nestedScrollEnabled={true}>
             <Text style = {styles.title}>Agregar Producto</Text>
             {/* Numero de articulo */}
             <View style = {{gap : 6}}>
@@ -340,7 +340,7 @@ export default function AddProductsScreen ({navigation} : any) {
             ]}>
                 <Text style={styles.buttonText}>Guardar</Text>
             </Pressable>
-        </View>
+        </ScrollView>
     )
 }
 

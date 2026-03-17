@@ -3,7 +3,7 @@ import { StockProducto } from "./StockProducto";
 import { TipoDePrenda } from "./TipoDePrenda";
 
 export interface Product {
-    id : number;
+    id : string;
     nombre : string;
     precio : number; 
     colorYTalle : ColorYTalle[];

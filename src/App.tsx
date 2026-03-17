@@ -15,6 +15,7 @@ import AddProductsScreen from "./screens/AddProductsScreen";
 import ProductsScreen from "./screens/ProductsScreen";
 import EditProductScreen from "./screens/EditProductScreen";
 import { PrefacturaScreen } from './screens/PrefacturaScreen';
+import PrefacturasScreen from './screens/PrefacturasScreen';
 import BarcodeScanScreen from './components/BarcodeScanScreen';
 import ScanScreen from './screens/ScanScreen';
 import ArmarPedidoScreen from './screens/ArmarPedidoScreen';
@@ -277,6 +278,11 @@ export default function App(){
           component={EditProductScreen}
           options = {{title : "Editar producto"}}
         
+        />
+        <Stack.Screen
+          name='Prefacturas'
+          component={PrefacturasScreen}
+          options={{title : "Prefacturas"}}
         />
         <Stack.Screen
           name='Prefactura'
