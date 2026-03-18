@@ -61,8 +61,9 @@ export default function AddProductsScreen ({navigation} : any) {
             return; 
         };
         try {
+            console.log('Enviando producto...')
             //1) Crear producto 
-            await apiFetch<any>('/api/productos', {
+            const response = await apiFetch<any>('/api/productos', {
                 method : "POST", 
                 body : {
                     id : nroArticulo.trim(),
@@ -75,7 +76,8 @@ export default function AddProductsScreen ({navigation} : any) {
                     })), 
                     tipoDePrenda : tipoDePrenda?.nombre ?? null //
                 }
-            })
+            }); 
+            console.log("OK:", response.data())
             navigation.goBack();
         } catch (e : any) {
             console.log('Status : ', e?.response?.status);

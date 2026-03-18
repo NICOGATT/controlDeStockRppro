@@ -182,5 +182,9 @@ const styles = StyleSheet.create({
         justifyContent : "space-between", 
         gap : 12, 
         marginTop : 14
+    }, 
+    topRow : {
+        flexDirection : "row", 
+        gap : 12
     }
 })

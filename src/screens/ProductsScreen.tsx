@@ -11,6 +11,7 @@ import { ColorYTalle } from "../types/ColorYTalle";
 import AgregarVariante from "../components/AgregarVariante";
 import { Color } from "../types/Color";
 import { Talle } from "../types/Talle";
+import api from "../api/axiosConfig";
 
 export default function ProductsScreen({
     navigation,
@@ -183,6 +184,8 @@ export default function ProductsScreen({
 
                 <Text style = {styles.subtitle}>Cantidad total: {productos.length}</Text>
 
+                <Text> API : {api.defaults.baseURL}</Text>
+
                 {productos.length === 0 && (
                     <Text>No hay productos agregados</Text>
                 )}
@@ -191,7 +194,6 @@ export default function ProductsScreen({
                     {productos.map((producto) => (
                         <View key = {producto.id} style = {styles.productContainer}>
                                 <ProductItem
-                                    key={producto.id}
                                     producto={producto}
                                     onAgregar={(variante) => moverStock(variante, producto.id, +1)}
                                     onQuitar={(variante) => moverStock(variante, producto.id, -1)}

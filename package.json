@@ -1,5 +1,5 @@
 {
-  "name": "rn-desktop",
+  "name": "StockHub",
   "version": "1.0.0",
   "main": "./src/index.js",
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.rppro.stock",
-    "productName": "RPPpro Stock",
+    "productName": "StockHub",
     "files": [
       "dist/**",
       "electron/**",
@@ -43,7 +43,6 @@
     "cli": "^1.0.1",
     "eas": "^0.1.0",
     "expo": "~54.0.32",
-    "expo-barcode-scanner": "^13.0.1",
     "expo-camera": "~17.0.10",
     "expo-print": "~15.0.8",
     "expo-sharing": "~14.0.8",
@@ -52,8 +51,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-barcode-builder": "^2.0.0",
-    "react-native-barcode-creator": "^0.1.8",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
