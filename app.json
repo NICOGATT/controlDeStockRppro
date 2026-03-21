@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/StockHub.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -29,7 +29,7 @@
       "package": "com.nicosdevs.rpprostock"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/StockHub.png"
     },
     "entryPoint": "./src/index.js",
     "extra": {

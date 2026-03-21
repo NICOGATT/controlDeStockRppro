@@ -31,8 +31,20 @@ export default function ArmarPedidoScreen({navigation} : any) {
     const [direccion2, setDireccion2] = useState<string>("")
 
     const [qVar, setQVar] = useState("");
+    const [searchVarText, setSearchVarText] = useState("");
     const [variantes, setVariantes] = useState<StockProducto[]>([]);
     const [loadingVar, setLoadingVar] = useState(false);
+
+    const [searchClienteText, setSearchClienteText] = useState("");
+    const [searchClienteQuery, setSearchClienteQuery] = useState("");
+
+    const handleSearchVar = () => {
+        setQVar(searchVarText);
+    };
+
+    const handleSearchCliente = () => {
+        setSearchClienteQuery(searchClienteText);
+    };
 
     const [items, setItems] = useState<PedidoItem[]>([]);
     const total = useMemo(() => calcTotal(items), [items]);
@@ -46,6 +58,41 @@ export default function ArmarPedidoScreen({navigation} : any) {
         items, 
         total,
     }), [clientesSel, direccion, items, total]);
+
+    const filteredClientes = useMemo(() => {
+        if (!searchClienteQuery.trim()) return clientes;
+        const q = searchClienteQuery.toLowerCase();
+        return clientes.filter(c => 
+            c.nombre.toLowerCase().includes(q) ||
+            c.telefono?.toLowerCase().includes(q)
+        );
+    }, [clientes, searchClienteQuery]);
+
+    const variantesFiltradas = useMemo(() => {
+        if (!qVar.trim()) return variantes;
+        const q = qVar.toLowerCase();
+        return variantes.filter((sp) => {
+            const prod = sp.producto?.nombre?.toLowerCase() ?? "";
+            const col = sp.color?.nombre?.toLowerCase() ?? "";
+            const tal = sp.talle?.nombre?.toLowerCase() ?? "";
+            return prod.includes(q) || col.includes(q) || tal.includes(q)
+        });
+    }, [qVar, variantes]);
+
+    const getVarMatchReason = (sp: StockProducto): string | null => {
+        if (!qVar.trim()) return null;
+        const q = qVar.toLowerCase();
+        if (sp.producto?.nombre?.toLowerCase().includes(q)) {
+            return `Nombre: ${sp.producto.nombre}`;
+        }
+        if (sp.color?.nombre?.toLowerCase().includes(q)) {
+            return `Color: ${sp.color.nombre}`;
+        }
+        if (sp.talle?.nombre?.toLowerCase().includes(q)) {
+            return `Talle: ${sp.talle.nombre}`;
+        }
+        return null;
+    };
 
     async function loadClientes() {
         const res = await apiFetch<Cliente[]>('/api/clientes');
@@ -344,21 +391,10 @@ export default function ArmarPedidoScreen({navigation} : any) {
             throw err;
         }
     }
-    const variantesFiltradas = useMemo(() => {
-        const q = qVar.trim().toLowerCase(); 
-        if (!q) return variantes; 
-
-        return variantes.filter((sp) => {
-            const prod = sp.producto?.nombre?.toLowerCase() ?? ""; 
-            const col = sp.color?.nombre?.toLowerCase() ?? "";
-            const tal = sp.talle?.nombre?.toLowerCase() ?? "";
-            return prod.includes(q) || col.includes(q) || tal.includes(q)
-        })
-    }, [qVar, variantes])
-
     const columns = isSmall ? 1 : 2;
     return ( 
-        <ScrollView style = {{flex : 1, padding : 16}} contentContainerStyle={{paddingBottom: 20}} nestedScrollEnabled={true}>
+        <View style={{flex: 1}}>
+        <ScrollView style = {{flex : 1, padding : 16}} contentContainerStyle={{paddingBottom: 120}} nestedScrollEnabled={true}>
             <Text style = {{fontSize : 18, fontWeight : "800", marginBottom: 10}}>Armar pedido</Text>
             {/* CLIENTE */}
             <View style = {styles.section}>
@@ -369,8 +405,26 @@ export default function ArmarPedidoScreen({navigation} : any) {
                     </Pressable>
                 </View>
 
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInputCliente}
+                        placeholder="Buscar cliente por nombre o telefono..."
+                        value={searchClienteText}
+                        onChangeText={setSearchClienteText}
+                        onSubmitEditing={handleSearchCliente}
+                        returnKeyType="search"
+                    />
+                    <Pressable style={styles.searchBtn} onPress={handleSearchCliente}>
+                        <Text style={styles.searchBtnText}>🔍</Text>
+                    </Pressable>
+                </View>
+
+                <Text style={styles.resultCount}>
+                    {filteredClientes.length} cliente(s) encontrado(s)
+                </Text>
+
                 <FlatList
-                    data = {clientes}
+                    data = {filteredClientes}
                     keyExtractor={(c) => String(c.id)}
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -391,37 +445,44 @@ export default function ArmarPedidoScreen({navigation} : any) {
             {/*Buscar */}
             <View style = {styles.section}>
                 <Text style = {styles.sectionTitle}>Producto (Color + talle)</Text>
-                <View style = {styles.searchRow}>
+                <View style={styles.searchContainer}>
                     <TextInput
-                        value = {qVar}
-                        onChangeText={setQVar}
-                        placeholder="Buscar por color, talle o producto"
-                        style = {styles.input}
-                        returnKeyType = "search"
-                        onSubmitEditing={() => loadStockProductos()}
+                        style={styles.searchInputCliente}
+                        placeholder="Buscar por nombre, color o talle..."
+                        value={searchVarText}
+                        onChangeText={setSearchVarText}
+                        onSubmitEditing={handleSearchVar}
+                        returnKeyType="search"
                     />
-                    <Pressable onPress={() => loadStockProductos()} style = {styles.btn}>
-                        <Text style = {styles.btnText}>{loadingVar ? "Cargando..." : "Buscar"}</Text>
+                    <Pressable style={styles.searchBtn} onPress={handleSearchVar}>
+                        <Text style={styles.searchBtnText}>🔍</Text>
                     </Pressable>
                 </View>
+                <Text style={styles.resultCount}>
+                    {variantesFiltradas.length} producto(s) encontrado(s)
+                </Text>
                 <FlatList
                     data = {variantesFiltradas}
                     key = {columns}
                     numColumns={columns}
                     keyExtractor={(v) => {
-                        console.log(v);
                         return `${v.productoId}-${v.colorId}-${v.talleId}`;
                     }}
                     columnWrapperStyle = {columns > 1 ? {gap : 10} : undefined}
                     contentContainerStyle = {{gap : 10, paddingTop : 10}}
                     renderItem = {({item}) => {
-                        console.log("ITEM VARIANTE:", JSON.stringify(item, null, 2))
-
+                        const matchReason = getVarMatchReason(item);
+                        const isHighlighted = qVar.trim() !== '';
                         return(
                             <Pressable
                                 onPress = {() => addStockProductoToItems(item)}
-                                style = {[styles.card, columns > 1 && {flex : 1}]}
+                                style = {[styles.card, columns > 1 && {flex : 1}, isHighlighted && styles.cardHighlighted]}
                             >
+                                {isHighlighted && matchReason && (
+                                    <View style={styles.matchBadge}>
+                                        <Text style={styles.matchBadgeText}>✓ {matchReason}</Text>
+                                    </View>
+                                )}
                                 <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
                                 <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
                                 <Text style = {styles.muted}>Stock: {item.stock}</Text>
@@ -468,24 +529,6 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 )}
             </View>
 
-            {/*Footer */}
-            <View style = {styles.footer}>
-                <Text style = {styles.muted}>Total:</Text>
-                <Text style = {{fontSize : 18, fontWeight : "800"}}>{formatMoney(total)}</Text>
-                <TouchableOpacity 
-                    onPress={goPrefactura}
-                    style = {{marginTop : 10, backgroundColor : "#111", padding : 14, borderRadius : 12, alignItems : "center"}}
-                >
-                    <Text style = {{color : "white", fontWeight : "800"}}>Generar prefactura</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    onPress={confirmarPedido}
-                    style = {{marginTop : 10, backgroundColor : "#22c55e", padding : 14, borderRadius : 12, alignItems : "center"}}
-                >
-                    <Text style = {{color : "white", fontWeight : "800"}}>Confirmar</Text>
-                </TouchableOpacity>
-            </View>
-
             {/* Modal nuevo cliente */}
             <Modal visible={modalCliente} transparent animationType = "fade" onRequestClose = {() => setModalCliente(false)}>
                 <View style = {styles.modalBackdrop}>
@@ -509,6 +552,28 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 </View>
             </Modal>
         </ScrollView>
+
+        <View style = {styles.footerFixed}>
+            <View style = {styles.footerLeft}>
+                <Text style = {styles.mutedFooter}>Total:</Text>
+                <Text style = {{fontSize : 18, fontWeight : "800", color : "white"}}>{formatMoney(total)}</Text>
+            </View>
+            <View style = {styles.footerButtons}>
+                <TouchableOpacity 
+                    onPress={goPrefactura}
+                    style = {styles.footerBtn}
+                >
+                    <Text style = {{color : "white", fontWeight : "800"}}>Prefactura</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    onPress={confirmarPedido}
+                    style = {[styles.footerBtn, {backgroundColor : "#22c55e"}]}
+                >
+                    <Text style = {{color : "white", fontWeight : "800"}}>Confirmar</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+        </View>
     )
 }  
 
@@ -622,5 +687,86 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     modalTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 6 },
-    mutedItem : {color : "black"}
+    mutedItem : {color : "black"},
+    footerFixed: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: "#1a1a2e",
+        padding: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderTopWidth: 1,
+        borderTopColor: "#333",
+    },
+    footerLeft: {
+        alignItems: "flex-start",
+    },
+    mutedFooter: { color: "#ccc", marginTop: 2 },
+    footerButtons: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    footerBtn: {
+        backgroundColor: "#111",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: "center",
+    },
+    searchContainer: {
+        flexDirection: "row",
+        marginTop: 10,
+        marginBottom: 10,
+    },
+    searchInputCliente: {
+        flex: 1,
+        backgroundColor: "#15151a",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        color: "white",
+        fontSize: 14,
+    },
+    searchBtn: {
+        backgroundColor: "#3b82f6",
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        justifyContent: "center",
+        alignItems: "center",
+        marginLeft: 8,
+    },
+    searchBtnText: {
+        fontSize: 18,
+    },
+    resultCount: {
+        color: "#9aa4b2",
+        fontSize: 12,
+        marginBottom: 8,
+    },
+    cardHighlighted: {
+        backgroundColor: "#3a3a2a",
+        borderWidth: 2,
+        borderColor: "#ffc107",
+    },
+    matchBadge: {
+        backgroundColor: "#4caf50",
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        marginBottom: 4,
+        position: "absolute",
+        top: 5,
+        right: 5,
+        zIndex: 1,
+    },
+    matchBadgeText: {
+        color: "white",
+        fontSize: 13,
+        fontWeight: "bold",
+    },
 })

@@ -8,7 +8,7 @@ import { Talle } from "../types/Talle";
 
 
 export default function AddProductsScreen ({navigation} : any) {
-    const [nombre, setNombre] = useState(""); 
+    const [nombre, setNombre] = useState("");
     const [precio, setPrecio] = useState(""); 
     const [tipoDePrenda, setTipoDePrenda] = useState<TipoDePrenda | null>(null); 
     const [nroArticulo, setNroArticulo] = useState(""); 
@@ -37,7 +37,7 @@ export default function AddProductsScreen ({navigation} : any) {
 
     const tieneTallesConPrecioPropio = variantes.some((v) => v.talle.nombre.trim().toLowerCase() !== "unico")
 
-    const formValido = nombreValido && variantesValidas && precioValido && nroDeArticuloValido && (tieneTallesConPrecioPropio ? precioVarianteValido : precio);
+    const formValido = nombreValido && variantesValidas && nroDeArticuloValido && (tieneTallesConPrecioPropio ? precioVarianteValido : precio);
 
 
     useEffect(() => {
@@ -204,17 +204,6 @@ export default function AddProductsScreen ({navigation} : any) {
                 />
             </View>
             
-            {/* Precio */}
-            <View style = {{gap : 6}}>
-                <Text style = {styles.label}>Precio</Text>
-                <TextInput
-                    placeholder="Ej: 12000"
-                    value={precio}
-                    keyboardType="numeric"
-                    onChangeText={setPrecio}
-                    style = {[styles.input, !precioValido && styles.inputError]}
-                />
-            </View>
 
             <View  style = {styles.divider}/>
             

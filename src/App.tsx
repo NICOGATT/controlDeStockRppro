@@ -7,8 +7,23 @@ import { useEffect} from 'react';
 import { loadProducts, saveProducts } from './storage/productsStorage';
 import { Movement } from './types/Movement';
 import { deleteMovement, loadMovements, saveMovements } from './storage/movementStorage';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+const BackButton = () => {
+  const navigation = useNavigation();
+  return (
+    <View style={{flexDirection: "row", alignItems: "center", paddingLeft: 8}}>
+      <Pressable 
+        onPress={() => navigation.goBack()} 
+        style={{paddingHorizontal: 12, paddingVertical: 8}}
+        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+      >
+        <Text style={{color: "#ffffff", fontSize: 22, fontWeight: "bold"}}>←</Text>
+      </Pressable>
+    </View>
+  );
+};
 
 import MovementsScreens from "./screens/MovementsScreens";
 import AddProductsScreen from "./screens/AddProductsScreen";
@@ -239,8 +254,25 @@ export default function App(){
   // }
 
   return (
+    <View style={{flex: 1}}>
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        id="MainStack"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: "#15151a",
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 0,
+          } as any,
+          headerTintColor: "#ffffff",
+          headerTitleStyle: {
+            color: "#ffffff",
+            fontWeight: "bold",
+          } as any,
+          headerBackVisible: false,
+        }}
+      >
         <Stack.Screen
           name = "Productos"
           options = {{headerShown : false}}
@@ -253,7 +285,12 @@ export default function App(){
         </Stack.Screen>
         <Stack.Screen
           name = "AddProduct"
-          options = {{title : "Agregar producto"}}
+          options = {{
+            title : "Agregar producto",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         >
           {props =>(
             <AddProductsScreen
@@ -263,7 +300,12 @@ export default function App(){
         </Stack.Screen> 
         <Stack.Screen
           name = "Movements"
-          options = {{title : "Movimientos"}}
+          options = {{
+            title : "Movimientos",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         >
           {props => (
             <MovementsScreens
@@ -276,41 +318,76 @@ export default function App(){
         <Stack.Screen 
           name= "EditProduct"
           component={EditProductScreen}
-          options = {{title : "Editar producto"}}
-        
+          options = {{
+            title : "Editar producto",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name='Prefacturas'
           component={PrefacturasScreen}
-          options={{title : "Prefacturas"}}
+          options={{
+            title : "Prefacturas",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name='Prefactura'
           component={PrefacturaScreen}
-          options={{title : "Prefactura"}}
+          options={{
+            title : "Prefactura",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name = "BarcodeScanScreen"
           component={ScanScreen}
-          options={{title : "Escaner"}}
+          options={{
+            title : "Escaner",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name='PedidosScreen'
           component={ArmarPedidoScreen}
-          options={{title : "Armar pedido"}}
+          options={{
+            title : "Armar pedido",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name = 'ColoresScreen'
           component={ColoresScreen}
-          options={{title : "Colores"}}
+          options={{
+            title : "Colores",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
         <Stack.Screen
           name='TallesScreen'
           component={TallesScreen}
-          options={{title : "Talles"}}
+          options={{
+            title : "Talles",
+            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: "#15151a" } as any,
+            headerLeft: () => <BackButton />,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
+    </View>
   )
 }
 
@@ -413,6 +490,35 @@ const styles = StyleSheet.create({
   deleteButtonText : {
     color : "white",
     fontWeight : "bold"
+  },
+  titleBar: {
+    height: 32,
+    backgroundColor: "#1a1a1a",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  dragRegion: {
+    flex: 1,
+    height: "100%",
+  },
+  windowControls: {
+    flexDirection: "row",
+    height: "100%",
+  },
+  controlBtn: {
+    width: 46,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  controlBtnText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  closeBtn: {
+    backgroundColor: "#e81123",
   }
 });
 

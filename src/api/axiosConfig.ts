@@ -1,10 +1,11 @@
 import axios from "axios"; 
 
 const api = axios.create({
-    baseURL : "http://192.168.0.23:3000", 
+    baseURL : "https://unprotracted-russ-unnarrative.ngrok-free.dev", 
     timeout : 10000,
     headers: {
         "Content-Type": "application/json",
+        "ngrok-skip-browser-warning" : true
     }
 })
 

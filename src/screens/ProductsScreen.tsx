@@ -1,4 +1,4 @@
-import {View, Text, Pressable, StyleSheet, ScrollView, Platform} from "react-native"; 
+import {View, Text, Pressable, StyleSheet, ScrollView, Platform, TextInput} from "react-native"; 
 import { ProductItem } from "../components/ProductItem"; 
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useState, useRef, useEffect, useCallback} from "react";
@@ -20,6 +20,57 @@ export default function ProductsScreen({
     const [showQR, setShowQR] = useState(false);
     const [productos, setProductos] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true); 
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchText, setSearchText] = useState('');
+
+    const handleSearch = () => {
+        setSearchQuery(searchText);
+    };
+
+    const filteredProductos = productos.filter((producto) => {
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase();
+        
+        if (producto.id.toLowerCase().includes(query)) return true;
+        if (producto.nombre.toLowerCase().includes(query)) return true;
+        
+        const coloresProducto = producto.stockProductos?.map((sp) => sp.color?.nombre?.toLowerCase()) || [];
+        if (coloresProducto.some((color) => color?.includes(query))) return true;
+        
+        const tallesProducto = producto.stockProductos?.map((sp) => sp.talle?.nombre?.toLowerCase()) || [];
+        if (tallesProducto.some((talle) => talle?.includes(query))) return true;
+        
+        return false;
+    });
+
+    const getMatchReason = (producto: Product): string | null => {
+        if (!searchQuery.trim()) return null;
+        const query = searchQuery.toLowerCase();
+        
+        if (producto.id.toLowerCase().includes(query)) {
+            return `ID: "${producto.id}"`;
+        }
+        
+        if (producto.nombre.toLowerCase().includes(query)) {
+            return `Nombre: "${producto.nombre}"`;
+        }
+        
+        const matchingColor = producto.stockProductos?.find(
+            (sp) => sp.color?.nombre?.toLowerCase().includes(query)
+        );
+        if (matchingColor) {
+            return `Color: "${matchingColor.color?.nombre}"`;
+        }
+        
+        const matchingTalle = producto.stockProductos?.find(
+            (sp) => sp.talle?.nombre?.toLowerCase().includes(query)
+        );
+        if (matchingTalle) {
+            return `Talle: "${matchingTalle.talle?.nombre}"`;
+        }
+        
+        return null;
+    }; 
     const [selectedStockProduct, setSelectStockProduct] = useState<StockProducto | null>(null); 
     const qrRef = useRef<any>(null);
     const [producto, setProducto] = useState<Product | null>(null);
@@ -155,44 +206,66 @@ export default function ProductsScreen({
         <ScrollView style = {styles.container} contentContainerStyle = {styles.content}>
             <View style = {styles.container}>
                 <View style = {styles.header}>
-                    <Text style = {styles.title}>RPPRO</Text>
                     <View style = {styles. buttonsContainer}>
                         <Pressable onPress = {() => navigation.navigate("AddProduct")}>
-                            <Text>➕ Agregar Producto</Text>
+                            <Text style = {styles.buttonText}>➕ Agregar Producto</Text>
                         </Pressable>
 
                         <Pressable onPress = {() => navigation.navigate("Movements")}>
-                            <Text>📜 Ver Movimientos</Text>
+                            <Text style = {styles.buttonText}>📜 Ver Movimientos</Text>
                         </Pressable>
                         <Pressable onPress = {() => navigation.navigate("PedidosScreen", {pedidoId : "pedido - 123"})}> 
-                            <Text>Armar pedido</Text>
+                            <Text style = {styles.buttonText}>Armar pedido</Text>
                         </Pressable>
                         <Pressable onPress={() => navigation.navigate("BarcodeScanScreen", {productos})}>
-                            <Text>Escanear QR</Text>
+                            <Text style = {styles.buttonText}>Escanear QR</Text>
                         </Pressable>
                         <Pressable onPress={() => navigation.navigate("ColoresScreen")}>
-                            <Text>Colores</Text>
+                            <Text style = {styles.buttonText}>Colores</Text>
                         </Pressable>
                         <Pressable onPress={() => navigation.navigate("TallesScreen")}>
-                            <Text>Talles</Text>
+                            <Text style = {styles.buttonText}>Talles</Text>
                         </Pressable>
                         <Pressable onPress={() => navigation.navigate("Prefacturas")}>
-                            <Text>Prefacturas</Text>
+                            <Text style = {styles.buttonText}>Prefacturas</Text>
                         </Pressable>
                     </View>
                 </View>
 
-                <Text style = {styles.subtitle}>Cantidad total: {productos.length}</Text>
-
-                <Text> API : {api.defaults.baseURL}</Text>
+                <View style = {styles.filter}>
+                    <View style={styles.searchContainer}>
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Buscar por ID, nombre, color o talle..."
+                            value={searchText}
+                            onChangeText={setSearchText}
+                            onSubmitEditing={handleSearch}
+                            returnKeyType="search"
+                        />
+                        <Pressable style={styles.searchButton} onPress={handleSearch}>
+                            <Text style={styles.searchButtonText}>🔍</Text>
+                        </Pressable>
+                    </View>
+                    <Text style = {styles.subtitle}>
+                        Mostrando {filteredProductos.length} de {productos.length} productos
+                    </Text>
+                </View>
 
                 {productos.length === 0 && (
                     <Text>No hay productos agregados</Text>
                 )}
                 
                 <View>
-                    {productos.map((producto) => (
-                        <View key = {producto.id} style = {styles.productContainer}>
+                    {filteredProductos.map((producto) => {
+                        const matchReason = getMatchReason(producto);
+                        const isHighlighted = searchQuery.trim() !== '';
+                        return (
+                        <View key = {producto.id} style = {[styles.productContainer, isHighlighted && styles.productContainerHighlight]}>
+                            {isHighlighted && matchReason && (
+                                <View style={styles.matchBadge}>
+                                    <Text style={styles.matchBadgeText}>✓ {matchReason}</Text>
+                                </View>
+                            )}
                                 <ProductItem
                                     producto={producto}
                                     onAgregar={(variante) => moverStock(variante, producto.id, +1)}
@@ -211,8 +284,8 @@ export default function ProductsScreen({
                                     ))}
                                 </View>
                             </View>
-                        )
-                    )}
+                        );
+                    })}
                 </View>
                 {/* 🔹 Modal (también fuera del map) */}
                 <AgregarVariante
@@ -256,7 +329,7 @@ const styles = StyleSheet.create({
         backgroundColor : "white",
         borderRadius : 8,
         flexDirection : Platform.OS === "web" ? "row" : "column",
-        justifyContent : Platform.OS === "web" ? "space-around" : "flex-start",
+        justifyContent : Platform.OS === "web" ? "center" : "flex-start",
         alignItems : Platform.OS === "web" ? "center" : "flex-start",
         marginTop : Platform.OS === "web" ? 0 : 30
     }, 
@@ -267,8 +340,58 @@ const styles = StyleSheet.create({
     subtitle : {
         fontSize : 18,
         marginBottom : 10,
-        color : "#f6f7f8"
+        color : "black"
     }, 
+    filter : {
+        backgroundColor : "white",
+        padding : 12,
+        borderRadius : 8,
+        marginBottom : 16
+    },
+    searchContainer : {
+        flexDirection : "row",
+        marginBottom : 10
+    },
+    searchInput : {
+        flex : 1,
+        borderWidth : 1,
+        borderColor : "#ccc",
+        borderRadius : 8,
+        padding : 10,
+        fontSize : 16,
+        marginRight : 8
+    },
+    searchButton : {
+        backgroundColor : "#20a4f3",
+        borderRadius : 8,
+        paddingHorizontal : 14,
+        justifyContent : "center",
+        alignItems : "center"
+    },
+    searchButtonText : {
+        fontSize : 20
+    }, 
+    productContainerHighlight : {
+        backgroundColor : "#fff9c4",
+        borderWidth : 2,
+        borderColor : "#ffc107"
+    },
+    matchBadge : {
+        backgroundColor : "#4caf50",
+        paddingHorizontal : 8,
+        paddingVertical : 2,
+        borderRadius : 12,
+        marginBottom : 4,
+        position : "absolute",
+        top : 5,
+        right : 5,
+        zIndex : 1
+    },
+    matchBadgeText : {
+        color : "white",
+        fontSize : 13,
+        fontWeight : "bold"
+    },
     productContainer : {
         backgroundColor : "white",
         flexDirection : Platform.OS === "web" ? "row" : "column",
@@ -277,5 +400,10 @@ const styles = StyleSheet.create({
         padding : 8,
         borderRadius : 8,
         marginBottom : 10,
+        position : "relative"
+    }, 
+    buttonText : {
+        fontWeight : "700", 
+        fontSize : 18
     }
 })

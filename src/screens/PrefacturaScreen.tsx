@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { apiFetch } from "../api/apiClient";
 import { StockProducto } from "../types/StockProducto";
-import { PrefacturaProducto } from "../types/PrefacturaProducto";
 
 type RouteParams = { draft?: PedidoDraft; prefacturaId?: number };
 type RootNav = any;
@@ -28,36 +27,68 @@ export function PrefacturaScreen({ navigation }: any) {
     const { draft, prefacturaId } = params;
 
     const { width } = useWindowDimensions();
-    const isSmall = width < 380;
+    const isSmall = width < 768;
+    const isMobile = width < 768;
 
     const [prefacturaCompleta, setPrefacturaCompleta] = useState<any>();
-    const [qVar, setQVar] = useState("");
+    const [searchVarText, setSearchVarText] = useState("");
     const [variantes, setVariantes] = useState<StockProducto[]>([]);
     const [loadingVar, setLoadingVar] = useState(false);
     const [items, setItems] = useState<any[]>([]);
 
+    const qVar = searchVarText;
+
+    const handleSearchVar = () => {
+        // La búsqueda se hace en tiempo real
+    };
+
+    const getVarMatchReason = (sp: StockProducto): string | null => {
+        if (!qVar.trim()) return null;
+        const query = qVar.toLowerCase();
+        if (sp.producto?.nombre?.toLowerCase().includes(query)) {
+            return `Nombre: ${sp.producto.nombre}`;
+        }
+        if (sp.color?.nombre?.toLowerCase().includes(query)) {
+            return `Color: ${sp.color.nombre}`;
+        }
+        if (sp.talle?.nombre?.toLowerCase().includes(query)) {
+            return `Talle: ${sp.talle.nombre}`;
+        }
+        return null;
+    };
+
     useEffect(() => {
         if (prefacturaId) {
             loadPrefacturaData();
+            loadStockProductos();
         }
     }, [prefacturaId]);
 
     useEffect(() => {
-        if (prefacturaCompleta?.productos) {
-            const itemsConvertidos = prefacturaCompleta.productos.map((p: any) => ({
-                productoId: p.producto?.id,
-                talleId: p.talle?.id,
-                colorId: p.color?.id,
-                nombreProducto: p.producto?.nombre,
-                talleNombre: p.talle?.nombre,
-                colorNombre: p.color?.nombre,
-                cantidad: p.cantidad,
-                precioUnitario: p.producto?.precio,
-                subtotal: p.cantidad * (p.producto?.precio || 0)
-            }));
+        if (prefacturaCompleta?.productos && variantes.length > 0) {
+            const itemsConvertidos = prefacturaCompleta.productos.map((p: any) => {
+                const stockProducto = variantes.find(
+                    (sp: any) => 
+                        sp.productoId === p.producto?.id && 
+                        sp.talleId === p.talle?.id && 
+                        sp.colorId === p.color?.id
+                );
+                const precioUnitario = stockProducto?.precio || 0;
+                return {
+                    productoId: p.producto?.id,
+                    talleId: p.talle?.id,
+                    colorId: p.color?.id,
+                    nombreProducto: p.producto?.nombre,
+                    talleNombre: p.talle?.nombre,
+                    colorNombre: p.color?.nombre,
+                    cantidad: p.cantidad,
+                    precioUnitario: precioUnitario,
+                    subtotal: p.cantidad * precioUnitario
+                };
+            });
             setItems(itemsConvertidos);
         }
-    }, [prefacturaCompleta]);
+    }, [prefacturaCompleta, variantes]);
 
     async function loadStockProductos() {
         try {
@@ -119,7 +150,7 @@ export function PrefacturaScreen({ navigation }: any) {
                 colorNombre: sp.color?.nombre,
                 cantidad: 1,
                 precioUnitario: sp.precio ?? 0,
-                subtotal: sp.producto?.precio ?? 0
+                subtotal: sp.precio ?? 0
             }];
         });
     }
@@ -144,16 +175,13 @@ export function PrefacturaScreen({ navigation }: any) {
     async function loadPrefacturaData() {
         try {
             const data = await apiFetch<any>(`/api/preFacturaProductos/prefactura/${prefacturaId}`);
-            console.log("Prefactura completa:", data);
             setPrefacturaCompleta(data);
         } catch (e) {
-            console.log("Error loading:", e);
             Alert.alert('Error', 'No se pudieron cargar los datos');
         }
     }
 
-    const columns = isSmall ? 1 : 2;
-    const compact = width < 380;
+    const columns = isMobile ? 1 : 2;
 
     const fecha = useMemo(() => {
         if (draft?.fechaISO) {
@@ -170,7 +198,7 @@ export function PrefacturaScreen({ navigation }: any) {
     const cliente = draft?.cliente || prefacturaCompleta?.cliente;
     const direccion = draft?.direccion || prefacturaCompleta?.cliente?.direccion?.direccion;
     const codigo = draft?.codigo || `Prefactura #${prefacturaId}`;
-    const total = draft?.total || itemsFinales.reduce((acc: number, it: any) => acc + (it.subtotal || it.cantidad * (it.precioUnitario || it.producto?.precio || 0)), 0);
+    const total = draft?.total || itemsFinales.reduce((acc: number, it: any) => acc + (it.subtotal || it.cantidad * (it.precioUnitario || it.precio || 0)), 0);
 
     async function confirmarPedido() {
         if (!itemsFinales || itemsFinales.length === 0) {
@@ -205,47 +233,36 @@ export function PrefacturaScreen({ navigation }: any) {
             nav.navigate('PedidosScreen');
         } catch (err) {
             Alert.alert('Error', 'No se pudo confirmar el pedido');
-            console.log(err);
         }
     }
 
     const compartirPdf = async () => {
         const html = `
             <html>
-                <head>
-                    <style>
-                        @media print{
-                            .no-print{display : none; }
-                        }
-                    </style>
-                </head>
-                <body style = "font-family: sans-serif; padding : 20px;">
+                <body style="font-family: sans-serif; padding: 20px;">
                     <h2>Prefactura / Remito</h2>
                     <p><b>Codigo:</b>${codigo}</p>
                     <p><b>Fecha:</b>${fecha}</p>
-
                     <h3>Cliente</h3>
                     <p><b>${cliente?.nombre ?? "-"}</b></p>
-                    ${cliente?.telefono ? `<p>Tel : ${cliente.telefono}</p>`: ""}
-                    ${direccion ? `<p>Dir : ${direccion}</p>`: ""}
+                    ${cliente?.telefono ? `<p>Tel: ${cliente.telefono}</p>`: ""}
+                    ${direccion ? `<p>Dir: ${direccion}</p>`: ""}
                     <h3>Detalles</h3>
                     <table width="100%" border="1" cellPadding="6" style="border-collapse:collapse;">
                         <tr>
-                            <th>Codigo</th>
                             <th>Producto</th>
                             <th>Variante</th>
                             <th>Cant</th>
-                            <th>Precio unitario</th>
+                            <th>Precio</th>
                             <th>Subtotal</th>
                         </tr>
                         ${itemsFinales.map((it: any) => `
                             <tr>
-                                <td>${it.productoId}</td>
                                 <td>${it.nombreProducto || it.producto?.nombre || "-"}</td>
                                 <td>${it.colorNombre || it.color?.nombre || "-"} • ${it.talleNombre || it.talle?.nombre || "-"}</td>
                                 <td style="text-align:center">${it.cantidad}</td>
-                                <td style="text-align:right">${it.precioUnitario || it.producto?.precio || 0}</td>
-                                <td style="text-align:right">${formatMoney(it.subtotal || (it.cantidad * (it.precioUnitario || it.producto?.precio || 0)))}</td>
+                                <td style="text-align:right">${formatMoney(it.precioUnitario || it.precio || 0)}</td>
+                                <td style="text-align:right">${formatMoney(it.subtotal || (it.cantidad * (it.precioUnitario || it.precio || 0)))}</td>
                             </tr>
                         `).join("")}
                     </table>
@@ -253,228 +270,680 @@ export function PrefacturaScreen({ navigation }: any) {
                 </body>
             </html>
         `;
-
         const {uri} = await Print.printToFileAsync({html});
-        await Sharing.shareAsync(uri, {mimeType : "application/pdf"})
+        await Sharing.shareAsync(uri, {mimeType: "application/pdf"})
     }
 
-    return (
-    <View style={styles.container}>
-        <View style={styles.header}>
-            <Text style={styles.title}>Prefactura / Remito</Text>
+    // HEADER para FlatList
+    const ListHeader = () => (
+        <View style={isMobile ? styles.headerMobile : styles.header}>
+            <Text style={isMobile ? styles.titleMobile : styles.title}>Prefactura / Remito</Text>
             <Text style={styles.muted}>Código: {codigo}</Text>
             <Text style={styles.muted}>Fecha: {fecha}</Text>
-        </View>
+            
+            <View style={[styles.box, isMobile && styles.boxMobile]}>
+                <Text style={styles.boxTitle}>Cliente</Text>
+                <Text style={styles.textStrong}>{cliente?.nombre ?? "-"}</Text>
+                {!!cliente?.telefono && (
+                    <Text style={styles.muted}>Tel: {cliente.telefono}</Text>
+                )}
+                {direccion && (
+                    <Text style={styles.muted}>Dir: {direccion}</Text>
+                )}
+            </View>
 
-        <View style={styles.box}>
-            <Text style={styles.boxTitle}>Cliente</Text>
-            <Text style={styles.textStrong}>{cliente?.nombre ?? "-"}</Text>
-            {!!cliente?.telefono && (
-                <Text style={styles.muted}>Tel: {cliente.telefono}</Text>
+            {prefacturaId && (
+                <View style={[styles.box, isMobile && styles.boxMobile]}>
+                    <Text style={styles.boxTitle}>Agregar Productos</Text>
+                    <View style={styles.searchRow}>
+                        <TextInput
+                            value={searchVarText}
+                            onChangeText={setSearchVarText}
+                            onSubmitEditing={handleSearchVar}
+                            placeholder="Buscar por nombre, color o talle..."
+                            placeholderTextColor="#666"
+                            returnKeyType="search"
+                            style={styles.searchInput}
+                        />
+                        <Pressable onPress={handleSearchVar} style={styles.searchBtn}>
+                            <Text style={styles.searchBtnText}>🔍</Text>
+                        </Pressable>
+                    </View>
+                    <Text style={styles.resultCount}>
+                        {variantesFiltradas.length} producto(s) encontrado(s)
+                    </Text>
+                </View>
             )}
-            {direccion && (
-                <Text style={styles.muted}>Dir: {direccion}</Text>
-            )}
-        </View>
 
-        {prefacturaId && (
-            <View style={styles.box}>
-                <Text style={styles.boxTitle}>Agregar Productos</Text>
-                <View style={{flexDirection: 'row', gap: 8, marginBottom: 10}}>
-                    <TextInput
-                        value={qVar}
-                        onChangeText={setQVar}
-                        placeholder="Buscar producto..."
-                        placeholderTextColor="#666"
-                        style={{flex: 1, backgroundColor: '#2a2a33', borderRadius: 8, padding: 8, color: 'white'}}
-                    />
-                    <Pressable onPress={loadStockProductos} style={{backgroundColor: '#3b82f6', padding: 10, borderRadius: 8}}>
-                        <Text style={{color: 'white', fontWeight: '700'}}>{loadingVar ? "..." : "Buscar"}</Text>
+            {/* <View style={[styles.box, isMobile && styles.boxMobile]}>
+                <Text style={styles.boxTitle}>Detalle</Text>
+            </View> */}
+        </View>
+    );
+
+    // PRODUCTO ITEM para FlatList
+    const renderProducto = ({ item, index }: { item: any; index: number }) => {
+        const matchReason = getVarMatchReason(item);
+        const isHighlighted = qVar.trim() !== '';
+        
+        if (isSmall) {
+            return (
+                <View style={styles.productCardMobile}>
+                    {isHighlighted && matchReason && (
+                        <View style={styles.matchBadge}>
+                            <Text style={styles.matchBadgeText}>✓ {matchReason}</Text>
+                        </View>
+                    )}
+                    <Text style={styles.productNameMobile}>{item.producto?.nombre}</Text>
+                    <Text style={styles.productDetail}>{item.color?.nombre} • {item.talle?.nombre}</Text>
+                    <Text style={styles.productDetail}>Stock: {item.stock}</Text>
+                    <Text style={styles.productPriceMobile}>{formatMoney(item.precio ?? 0)}</Text>
+                    <Pressable style={styles.addButton} onPress={() => addStockProductoToItems(item)}>
+                        <Text style={styles.addButtonText}>Agregar</Text>
                     </Pressable>
                 </View>
-                <FlatList
-                    data={variantesFiltradas.slice(0, 10)}
-                    key={columns}
-                    numColumns={columns}
-                    keyExtractor={(v) => `${v.productoId}-${v.colorId}-${v.talleId}`}
-                    columnWrapperStyle={columns > 1 ? {gap: 10} : undefined}
-                    contentContainerStyle={{gap: 10, paddingTop: 5}}
-                    renderItem={({item}) => (
-                        <Pressable
-                            onPress={() => addStockProductoToItems(item)}
-                            style={[styles.card, columns > 1 && {flex: 1}]}
-                        >
-                            <Text style={styles.cardTitle}>{item.producto?.nombre}</Text>
-                            <Text style={styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
-                            <Text style={styles.muted}>Stock: {item.stock}</Text>
-                            <Text style={styles.price}>{formatMoney(item.producto?.precio ?? 0)}</Text>
-                            <Text style={styles.tap}>Toca para agregar</Text>
-                        </Pressable>
-                    )}
-                />
-            </View>
-        )}
+            );
+        }
 
-        <View style={styles.box}>
-            <Text style={styles.boxTitle}>Detalle</Text>
-
-            <View style={[styles.tableHead, compact && { paddingHorizontal: 8 }]}>
-                <Text style={[styles.th, { flex: 2}]}>Producto</Text>
-                <Text style={[styles.th, { flex: 1.5 }]}>Variante</Text>
-                <Text style={[styles.th, { width: 42, textAlign: "center" }]}>
-                    Cant
-                </Text>
-                <Text style={[styles.th, { width: 70, textAlign: "right" }]}>
-                    P.Unit
-                </Text>
-                <Text style={[styles.th, {width : 80, textAlign: "right"}]}>
-                    Subtotal
-                </Text>
-            </View>
-
-            <FlatList
-                data={itemsFinales}
-                keyExtractor={(it: any) =>
-                    `${it.producto?.id || it.productoId} - ${it.talle?.id || it.talleId} - ${it.color?.id || it.colorId}`
-                }
-                ListEmptyComponent={<Text style={styles.muted}>No hay productos agregados</Text>}
-                ItemSeparatorComponent={() => <View style={styles.sep} />}
-                renderItem={({ item }: { item: any }) => {
-                    const precio = item.precioUnitario || item.producto?.precio || 0;
-                    return (
-                    <View style={[styles.row, compact && { paddingHorizontal: 8 }]}>
-                        <View style={{flex: 2}}>
-                            <Text style={[styles.td]} numberOfLines={2}>
-                                {item.nombreProducto || item.producto?.nombre || "-"}
-                            </Text>
-                        </View>
-                        <View style={{flex: 1.5}}>
-                            <Text style={styles.tdMuted} numberOfLines={2}>
-                                {item.colorNombre || item.color?.nombre || "-"} • {item.talleNombre || item.talle?.nombre || "-"}
-                            </Text>
-                        </View>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                            <Pressable 
-                                onPress={() => changeQty(item.productoId, item.talleId, item.colorId, -1)}
-                                style={{backgroundColor: '#2a2a33', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6}}
-                            >
-                                <Text style={{color: 'white', fontWeight: '900'}}>-</Text>
-                            </Pressable>
-                            <Text style={[styles.td, {width: 30, textAlign: 'center'}]}>{item.cantidad}</Text>
-                            <Pressable 
-                                onPress={() => changeQty(item.productoId, item.talleId, item.colorId, 1)}
-                                style={{backgroundColor: '#2a2a33', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6}}
-                            >
-                                <Text style={{color: 'white', fontWeight: '900'}}>+</Text>
-                            </Pressable>
-                        </View>
-                        <Text style={[styles.td, {width: 70, textAlign: "right"}]}>
-                            {formatMoney(precio)}
-                        </Text>
-                        <Text style = {[styles.td, {width : 80, textAlign: "right"}]}>
-                            {formatMoney(item.subtotal || item.cantidad * precio)}
-                        </Text>
+        return (
+            <Pressable
+                style={[styles.productCard, index % 2 === 0 && styles.productCardLeft]}
+                onPress={() => addStockProductoToItems(item)}
+            >
+                {isHighlighted && matchReason && (
+                    <View style={styles.matchBadge}>
+                        <Text style={styles.matchBadgeText}>✓ {matchReason}</Text>
                     </View>
-                )}}
-            />
-        </View>
+                )}
+                <Text style={styles.cardTitle}>{item.producto?.nombre}</Text>
+                <Text style={styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
+                <Text style={styles.muted}>Stock: {item.stock}</Text>
+                <Text style={styles.price}>{formatMoney(item.precio ?? 0)}</Text>
+                <Text style={styles.tap}>Toca para agregar</Text>
+            </Pressable>
+        );
+    };
 
-        <View style={styles.footer}>
-            <View>
-                <Text style={styles.muted}>Total</Text>
-                <Text style={styles.total}>{formatMoney(total)}</Text>
+    // ITEM de PEDIDO para FlatList
+    const renderPedidoItem = ({ item, index }: { item: any; index: number }) => {
+        const precio = item.precioUnitario || item.precio || 0;
+
+        if (isSmall) {
+            return (
+                <View style={styles.pedidoCardMobile}>
+                    <Text style={styles.pedidoProductName}>{item.nombreProducto || item.producto?.nombre || "-"}</Text>
+                    <Text style={styles.pedidoVariant}>{item.colorNombre || item.color?.nombre || "-"} • {item.talleNombre || item.talle?.nombre || "-"}</Text>
+                    
+                    <View style={styles.pedidoQtyRow}>
+                        <Text style={styles.pedidoLabel}>Cantidad:</Text>
+                        <View style={styles.qtyControls}>
+                            <Pressable style={styles.qtyBtn} onPress={() => changeQty(item.productoId, item.talleId, item.colorId, -1)}>
+                                <Text style={styles.qtyBtnText}>-</Text>
+                            </Pressable>
+                            <Text style={styles.qtyValue}>{item.cantidad}</Text>
+                            <Pressable style={styles.qtyBtn} onPress={() => changeQty(item.productoId, item.talleId, item.colorId, 1)}>
+                                <Text style={styles.qtyBtnText}>+</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                    
+                    <View style={styles.pedidoPrices}>
+                        <Text style={styles.pedidoPriceLabel}>P.Unit: {formatMoney(precio)}</Text>
+                        <Text style={styles.pedidoSubtotal}>Subtotal: {formatMoney(item.subtotal || item.cantidad * precio)}</Text>
+                    </View>
+                </View>
+            );
+        }
+
+        return (
+            <View style={[styles.pedidoRow, index % 2 === 0 && styles.pedidoRowAlt]}>
+                <View style={styles.pedidoColProduct}>
+                    <Text style={styles.pedidoText} numberOfLines={2}>{item.nombreProducto || item.producto?.nombre || "-"}</Text>
+                </View>
+                <View style={styles.pedidoColVariant}>
+                    <Text style={styles.pedidoTextMuted} numberOfLines={2}>{item.colorNombre || item.color?.nombre || "-"} • {item.talleNombre || item.talle?.nombre || "-"}</Text>
+                </View>
+                <View style={styles.pedidoColQty}>
+                    <Pressable style={styles.qtyBtnSmall} onPress={() => changeQty(item.productoId, item.talleId, item.colorId, -1)}>
+                        <Text style={styles.qtyBtnTextSmall}>-</Text>
+                    </Pressable>
+                    <Text style={styles.qtyValueSmall}>{item.cantidad}</Text>
+                    <Pressable style={styles.qtyBtnSmall} onPress={() => changeQty(item.productoId, item.talleId, item.colorId, 1)}>
+                        <Text style={styles.qtyBtnTextSmall}>+</Text>
+                    </Pressable>
+                </View>
+                <Text style={styles.pedidoPrice}>{formatMoney(precio)}</Text>
+                <Text style={styles.pedidoSubtotalText}>{formatMoney(item.subtotal || item.cantidad * precio)}</Text>
             </View>
+        );
+    };
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
-                <Pressable onPress={() => nav.goBack()} style={styles.btnGhost}>
-                    <Text style={styles.btnGhostText}>Volver</Text>
+    // FOOTER
+    const ListFooter = () => (
+        <View style={isSmall ? styles.footerMobile : styles.footer}>
+            <View style={styles.footerTotalRow}>
+                <Text style={styles.footerTotalLabel}>Total</Text>
+                <Text style={styles.footerTotalAmount}>{formatMoney(total)}</Text>
+            </View>
+            <View style={styles.footerButtonsRow}>
+                <Pressable onPress={() => nav.goBack()} style={styles.btnSecondary}>
+                    <Text style={styles.btnSecondaryText}>Volver</Text>
                 </Pressable>
-
-                <Pressable
-                    onPress={compartirPdf}
-                    style={[styles.btn, styles.btnPrimary]}
-                >
-                    <Text style={styles.btnText}>Imprimir/Compartir</Text>
+                <Pressable onPress={compartirPdf} style={styles.btnSecondary}>
+                    <Text style={styles.btnSecondaryText}>Imprimir</Text>
                 </Pressable>
-
                 {prefacturaId && (
-                    <Pressable
-                        onPress={confirmarPedido}
-                        style={[styles.btn, { backgroundColor: "#22c55e" }]}
-                    >
-                        <Text style={styles.btnText}>Confirmar</Text>
+                    <Pressable onPress={confirmarPedido} style={styles.btnConfirm}>
+                        <Text style={styles.btnConfirmText}>Confirmar</Text>
                     </Pressable>
                 )}
             </View>
         </View>
-    </View>
+    );
+
+    const allItems = [
+        ...(prefacturaId ? variantesFiltradas.slice(0, 20).map((v, i) => ({ type: 'producto', data: v, key: `prod-${v.productoId}-${v.colorId}-${v.talleId}` })) : []),
+        ...itemsFinales.map((it, i) => ({ type: 'pedido', data: it, key: `ped-${it.productoId}-${it.talleId}-${it.colorId}-${i}` }))
+    ];
+
+    const renderItem = ({ item }: { item: any }) => {
+        if (item.type === 'producto') {
+            return renderProducto({ item: item.data, index: 0 });
+        }
+        return renderPedidoItem({ item: item.data, index: 0 });
+    };
+
+    if (isSmall) {
+        return (
+            <View style={styles.container}>
+                <FlatList
+                    data={allItems}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.key}
+                    ListHeaderComponent={ListHeader}
+                    ListFooterComponent={ListFooter}
+                    contentContainerStyle={styles.scrollContentMobile}
+                    showsVerticalScrollIndicator={true}
+                    style={{flex: 1}}
+                />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.title}>Prefactura / Remito</Text>
+                <Text style={styles.muted}>Código: {codigo}</Text>
+                <Text style={styles.muted}>Fecha: {fecha}</Text>
+            </View>
+
+            <View style={styles.box}>
+                <Text style={styles.boxTitle}>Cliente</Text>
+                <Text style={styles.textStrong}>{cliente?.nombre ?? "-"}</Text>
+                {!!cliente?.telefono && (
+                    <Text style={styles.muted}>Tel: {cliente.telefono}</Text>
+                )}
+                {direccion && (
+                    <Text style={styles.muted}>Dir: {direccion}</Text>
+                )}
+            </View>
+
+            {prefacturaId && (
+                <View style={styles.box}>
+                    <Text style={styles.boxTitle}>Agregar Productos</Text>
+                    <View style={styles.searchRow}>
+                        <TextInput
+                            value={searchVarText}
+                            onChangeText={setSearchVarText}
+                            onSubmitEditing={handleSearchVar}
+                            placeholder="Buscar por nombre, color o talle..."
+                            placeholderTextColor="#666"
+                            returnKeyType="search"
+                            style={styles.searchInput}
+                        />
+                        <Pressable onPress={handleSearchVar} style={styles.searchBtn}>
+                            <Text style={styles.searchBtnText}>🔍</Text>
+                        </Pressable>
+                    </View>
+                    <Text style={styles.resultCount}>
+                        {variantesFiltradas.length} producto(s) encontrado(s)
+                    </Text>
+                    <View style={styles.productGrid}>
+                        {variantesFiltradas.slice(0, 20).map((item, index) => renderProducto({ item, index }))}
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.box}>
+                <Text style={styles.boxTitle}>Detalle</Text>
+                <View style={styles.tableHead}>
+                    <Text style={[styles.th, { flex: 2}]}>Producto</Text>
+                    <Text style={[styles.th, { flex: 1.5}]}>Variante</Text>
+                    <Text style={[styles.th, { width: 100, textAlign: "center" }]}>Cant</Text>
+                    <Text style={[styles.th, { width: 90, textAlign: "right" }]}>P.Unit</Text>
+                    <Text style={[styles.th, { width: 100, textAlign: "right" }]}>Subtotal</Text>
+                </View>
+                <FlatList
+                    data={itemsFinales}
+                    renderItem={renderPedidoItem}
+                    keyExtractor={(item, index) => `${item.productoId}-${item.talleId}-${item.colorId}-${index}`}
+                    scrollEnabled={false}
+                />
+            </View>
+
+            <ListFooter />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 14, backgroundColor: "#0b0b0d" },
-    header: { marginBottom: 12 },
-    title: { color: "white", fontSize: 22, fontWeight: "900" },
-    muted: { color: "#9aa4b2", marginTop: 2 },
-
+    container: {
+        flex: 1,
+        backgroundColor: "#0b0b0d",
+        padding: 14,
+        justifyContent : "space-between"
+    },
+    header: {
+        marginBottom: 12,
+    },
+    headerMobile: {
+        marginBottom: 12,
+    },
+    title: {
+        color: "white",
+        fontSize: 22,
+        fontWeight: "900",
+    },
+    titleMobile: {
+        color: "white",
+        fontSize: 20,
+        fontWeight: "900",
+        marginBottom: 8,
+    },
+    muted: {
+        color: "#9aa4b2",
+        marginTop: 2,
+        fontSize: 14,
+    },
     box: {
         backgroundColor: "#15151a",
         borderWidth: 1,
         borderColor: "#2a2a33",
         borderRadius: 16,
         padding: 12,
-        marginTop: 10,
+        marginBottom: 12,
     },
-    boxTitle: { color: "white", fontWeight: "900", marginBottom: 8 },
-    textStrong: { color: "white", fontWeight: "900", fontSize: 16 },
-
-    tableHead: {
+    boxMobile: {
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 10,
+    },
+    boxTitle: {
+        color: "white",
+        fontWeight: "900",
+        marginBottom: 8,
+        fontSize: 16,
+    },
+    textStrong: {
+        color: "white",
+        fontWeight: "900",
+        fontSize: 16,
+    },
+    searchRow: {
         flexDirection: "row",
-        paddingVertical: 8,
-        paddingHorizontal: 10,
+        marginBottom: 10,
     },
-    th: { color: "#cbd5e1", fontWeight: "900" },
-    row: {
-        flexDirection: "row",
-        paddingVertical: 10,
-        paddingHorizontal: 10,
-        alignItems: "center",
-    },
-    td: { color: "white", fontWeight: "700" },
-    tdMuted: { color: "#9aa4b2", fontWeight: "700" },
-    sep: { height: 1, backgroundColor: "#2a2a33" },
-
-    footer: {
-        marginTop: "auto",
-        paddingTop: 12,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 10,
-    },
-    total: { color: "white", fontSize: 18, fontWeight: "900" },
-
-    btn: {
+    searchInput: {
+        flex: 1,
         backgroundColor: "#2a2a33",
+        borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 10,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
+        color: "white",
+        fontSize: 14,
     },
-    btnPrimary: { backgroundColor: "#3b82f6" },
-    btnText: { color: "white", fontWeight: "800" },
-    btnGhost: { paddingHorizontal: 10, paddingVertical: 10 },
-    btnGhostText: { color: "#9aa4b2", fontWeight: "800" },
-
-    card: {
+    searchBtn: {
+        backgroundColor: "#3b82f6",
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        justifyContent: "center",
+        alignItems: "center",
+        marginLeft: 8,
+    },
+    searchBtnText: {
+        fontSize: 18,
+    },
+    resultCount: {
+        color: "#9aa4b2",
+        fontSize: 12,
+        marginBottom: 8,
+    },
+    productGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+    },
+    productCard: {
         backgroundColor: "#3F403F",
         borderWidth: 1,
         borderColor: "#2a2a33",
         borderRadius: 16,
         padding: 12,
+        width: "48%",
+        position: "relative",
     },
-    cardTitle: { color: "white", fontWeight: "800" },
-    price: { color: "white", fontWeight: "800", marginTop: 6 },
-    tap: { color: "#3b82f6", fontWeight: "700", marginTop: 10 },
+    productCardLeft: {
+        marginRight: "2%",
+    },
+    productCardMobile: {
+        backgroundColor: "#1e1e24",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 10,
+        position: "relative",
+    },
+    cardTitle: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 14,
+        marginBottom: 4,
+    },
+    productNameMobile: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 16,
+        marginBottom: 6,
+    },
+    productDetail: {
+        color: "#9aa4b2",
+        fontSize: 13,
+        marginBottom: 2,
+    },
+    productPriceMobile: {
+        color: "#22c55e",
+        fontWeight: "800",
+        fontSize: 18,
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    price: {
+        color: "white",
+        fontWeight: "800",
+        marginTop: 6,
+        fontSize: 14,
+    },
+    tap: {
+        color: "#3b82f6",
+        fontWeight: "700",
+        marginTop: 10,
+        fontSize: 12,
+    },
+    addButton: {
+        backgroundColor: "#22c55e",
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: "center",
+    },
+    addButtonText: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 14,
+    },
+    matchBadge: {
+        backgroundColor: "#4caf50",
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        position: "absolute",
+        top: 8,
+        right: 8,
+        zIndex: 1,
+    },
+    matchBadgeText: {
+        color: "white",
+        fontSize: 10,
+        fontWeight: "bold",
+    },
+    tableHead: {
+        flexDirection: "row",
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: "#2a2a33",
+    },
+    th: {
+        color: "#cbd5e1",
+        fontWeight: "900",
+        fontSize: 12,
+    },
+    pedidoRow: {
+        flexDirection: "row",
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        alignItems: "center",
+        borderBottomWidth: 1,
+        borderBottomColor: "#2a2a33",
+    },
+    pedidoRowAlt: {
+        backgroundColor: "#15151a",
+    },
+    pedidoColProduct: {
+        flex: 2,
+    },
+    pedidoColVariant: {
+        flex: 1.5,
+    },
+    pedidoColQty: {
+        width: 100,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    pedidoText: {
+        color: "white",
+        fontWeight: "700",
+        fontSize: 13,
+    },
+    pedidoTextMuted: {
+        color: "#9aa4b2",
+        fontWeight: "700",
+        fontSize: 12,
+    },
+    pedidoPrice: {
+        color: "white",
+        fontWeight: "700",
+        fontSize: 13,
+        width: 90,
+        textAlign: "right",
+    },
+    pedidoSubtotalText: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 13,
+        width: 100,
+        textAlign: "right",
+    },
+    pedidoCardMobile: {
+        backgroundColor: "#1e1e24",
+        borderWidth: 1,
+        borderColor: "#2a2a33",
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 10,
+    },
+    pedidoProductName: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 16,
+        marginBottom: 4,
+    },
+    pedidoVariant: {
+        color: "#9aa4b2",
+        fontSize: 13,
+        marginBottom: 12,
+    },
+    pedidoQtyRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 10,
+    },
+    pedidoLabel: {
+        color: "#9aa4b2",
+        fontSize: 14,
+    },
+    qtyControls: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    qtyBtn: {
+        backgroundColor: "#3b82f6",
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    qtyBtnText: {
+        color: "white",
+        fontWeight: "900",
+        fontSize: 20,
+    },
+    qtyValue: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 18,
+        minWidth: 30,
+        textAlign: "center",
+    },
+    qtyBtnSmall: {
+        backgroundColor: "#2a2a33",
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    qtyBtnTextSmall: {
+        color: "white",
+        fontWeight: "900",
+        fontSize: 16,
+    },
+    qtyValueSmall: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 14,
+        minWidth: 25,
+        textAlign: "center",
+    },
+    pedidoPrices: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: "#2a2a33",
+    },
+    pedidoPriceLabel: {
+        color: "#9aa4b2",
+        fontSize: 13,
+    },
+    pedidoSubtotal: {
+        color: "#22c55e",
+        fontWeight: "800",
+        fontSize: 16,
+    },
+    footer: {
+        backgroundColor: "#15151a",
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderTopWidth: 2,
+        borderTopColor: "#3b82f6",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        marginHorizontal: -14,
+        marginBottom: -14,
+        paddingBottom: 30,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    footerTotalRow: {
+        marginBottom: 16,
+    },
+    footerTotalLabel: {
+        color: "#9aa4b2",
+        fontSize: 14,
+        marginBottom: 4,
+    },
+    footerTotalAmount: {
+        color: "white",
+        fontSize: 28,
+        fontWeight: "900",
+    },
+    footerButtonsRow: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    btnSecondary: {
+        flex: 1,
+        backgroundColor: "#2a2a33",
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    btnSecondaryText: {
+        color: "#9aa4b2",
+        fontWeight: "700",
+        fontSize: 14,
+    },
+    btnConfirm: {
+        flex: 2,
+        backgroundColor: "#22c55e",
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#22c55e",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    btnConfirmText: {
+        color: "white",
+        fontWeight: "800",
+        fontSize: 16,
+    },
+    footerMobile: {
+        backgroundColor: "#15151a",
+        paddingVertical : 16, 
+        paddingHorizontal: 16,
+        borderTopWidth: 2,
+        borderTopColor: "#3b82f6",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 30,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+
+    },
+    scrollContent: {
+        paddingBottom: 100,
+    },
+    scrollContentMobile: {
+        paddingBottom: 150,
+        paddingHorizontal: 0,
+    },
 });

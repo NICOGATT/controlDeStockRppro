@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {View, Text, Button, ActivityIndicator, Alert} from "react-native"; 
+import {View, Text, Button, ActivityIndicator, Alert, Pressable, StyleSheet} from "react-native"; 
 import {getProductos} from "../api/Product";
 import { Camera, CameraView } from "expo-camera";
 import { Product } from "../types/Product";
@@ -11,6 +11,17 @@ export default function ScanScreen({navigation, route} : any) {
     const products = (route.params as { products?: Product[] })?.products ?? [];
     const [hasPermission, setHasPermission] = useState<boolean | null>(null); 
     const [scanned, setScanned] = useState(false); 
+
+    const BackButton = () => (
+        <View style={{paddingLeft: 8}}>
+            <Pressable 
+                onPress={() => navigation.goBack()} 
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+            >
+                <Text style={{color: "#ffffff", fontSize: 22, fontWeight: "bold"}}>←</Text>
+            </Pressable>
+        </View>
+    ); 
 
     useEffect(() => {
         (async () => {
@@ -69,7 +80,7 @@ export default function ScanScreen({navigation, route} : any) {
     if(hasPermission === false) return <Text>No hay permiso para camara</Text>
 
     return (
-        <View style = {{flex : 1}}>
+        <View style={styles.container}>
             <CameraView
                 style={{ flex: 1 }}
                 barcodeScannerSettings={{
@@ -78,7 +89,7 @@ export default function ScanScreen({navigation, route} : any) {
                 onBarcodeScanned={handleBarCodeScanned}
             />
             <View style={{ padding: 16 }}>
-                <Text>{scanned ? "Escaneado ✅" : "Apuntá al QR"}</Text>
+                <Text style={{color: "white"}}>{scanned ? "Escaneado ✅" : "Apuntá al QR"}</Text>
                 {scanned && (
                     <Button title="Escanear otra vez" onPress={() => setScanned(false)} />
                 )}
@@ -86,3 +97,7 @@ export default function ScanScreen({navigation, route} : any) {
         </View>
     )
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: "#0b0b0d" },
+});

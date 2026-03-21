@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react" ; 
-import {View, TextInput,  Pressable, Text, StyleSheet, Alert, ActivityIndicator} from "react-native";
+import {View, TextInput, Text, StyleSheet, Alert, ActivityIndicator, Pressable} from "react-native";
 import { apiFetch } from "../api/apiClient";
 import { TipoDePrenda } from "../types/TipoDePrenda";
 
@@ -71,10 +71,10 @@ export default function EditProductScreen ({route, navigation} : any) {
             Alert.alert('Error', 'No se pudo actualizar producto')
         }
     }
-    if (loading) return <ActivityIndicator style ={{marginTop : 20}}/>
+    if (loading) return <ActivityIndicator style={{marginTop : 20}}/>
 
     return (
-        <View style = {styles.container}>
+        <View style={styles.container}>
             <TextInput
                 value = {form.nombre} 
                 onChangeText={(text) => handleChange("nombre", text)} 
