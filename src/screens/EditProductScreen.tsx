@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react" ;
 import {View, TextInput, Text, StyleSheet, Alert, ActivityIndicator, Pressable} from "react-native";
 import { apiFetch } from "../api/apiClient";
 import { TipoDePrenda } from "../types/TipoDePrenda";
+import { colors } from "../theme/colors";
 
 export default function EditProductScreen ({route, navigation} : any) {
     const {producto} = route.params;
@@ -115,22 +116,24 @@ export default function EditProductScreen ({route, navigation} : any) {
 const styles = StyleSheet.create({
     container : {
         padding: 16, 
-        gap : 10
+        gap : 10,
+        backgroundColor: colors.backgroundDark
     }, 
     input : {
         borderWidth : 1,
         padding : 10, 
         borderRadius : 6, 
-        backgroundColor : "white"
+        backgroundColor : colors.surface
     }, 
+
     buttonSave : {
         padding : 12, 
         borderRadius : 6, 
         alignItems : "center",
-        backgroundColor : "green"
+        backgroundColor : colors.success
     }, 
     buttonSaveText : {
-        color : "white", 
+        color : colors.textInverse, 
         fontWeight : "bold"
     }
 })

@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   Alert,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { formatMoney } from "../utils/pedido";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -16,6 +17,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { apiFetch } from "../api/apiClient";
 import { StockProducto } from "../types/StockProducto";
+import { colors } from "../theme/colors";
 
 type RouteParams = { draft?: PedidoDraft; prefacturaId?: number };
 type RootNav = any;
@@ -65,25 +67,33 @@ export function PrefacturaScreen({ navigation }: any) {
     }, [prefacturaId]);
 
     useEffect(() => {
-        if (prefacturaCompleta?.productos && variantes.length > 0) {
-            const itemsConvertidos = prefacturaCompleta.productos.map((p: any) => {
-                const stockProducto = variantes.find(
+        if (prefacturaCompleta?.productos) {
+            const stockMap = variantes.reduce((acc: any, sp: any) => {
+                const key = `${sp.productoId}-${sp.talleId}-${sp.colorId}`;
+                acc[key] = sp;
+                return acc;
+            }, {});
+
+            const itemsConvertidos = prefacturaCompleta.productos.map((p: any, idx: number) => {
+                const key = `${p.producto?.id}-${p.talle?.id}-${p.color?.id}`;
+                const stockProducto = stockMap[key] || variantes.find(
                     (sp: any) => 
                         sp.productoId === p.producto?.id && 
                         sp.talleId === p.talle?.id && 
                         sp.colorId === p.color?.id
                 );
-                const precioUnitario = stockProducto?.precio || 0;
+                const precioUnitario = stockProducto?.producto?.precio || stockProducto?.precio || p.producto?.precio || 0;
                 return {
-                    productoId: p.producto?.id,
-                    talleId: p.talle?.id,
-                    colorId: p.color?.id,
+                    _key: `${p.producto?.id || 'p'}-${p.talle?.id || idx}-${p.color?.id || idx}-${idx}`,
+                    productoId: p.producto?.id || `producto-${idx}`,
+                    talleId: p.talle?.id || idx,
+                    colorId: p.color?.id || idx,
                     nombreProducto: p.producto?.nombre,
                     talleNombre: p.talle?.nombre,
                     colorNombre: p.color?.nombre,
-                    cantidad: p.cantidad,
+                    cantidad: p.cantidad || 0,
                     precioUnitario: precioUnitario,
-                    subtotal: p.cantidad * precioUnitario
+                    subtotal: (p.cantidad || 0) * precioUnitario
                 };
             });
             setItems(itemsConvertidos);
@@ -188,8 +198,8 @@ export function PrefacturaScreen({ navigation }: any) {
             const d = new Date(draft.fechaISO);
             return d.toLocaleString("es-AR");
         }
-        if (prefacturaCompleta?.fechaISO) {
-            return new Date(prefacturaCompleta.fechaISO).toLocaleString("es-AR");
+        if (prefacturaCompleta?.fecha) {
+            return new Date(prefacturaCompleta.fecha).toLocaleString("es-AR");
         }
         return "";
     }, [draft, prefacturaCompleta]);
@@ -199,6 +209,12 @@ export function PrefacturaScreen({ navigation }: any) {
     const direccion = draft?.direccion || prefacturaCompleta?.cliente?.direccion?.direccion;
     const codigo = draft?.codigo || `Prefactura #${prefacturaId}`;
     const total = draft?.total || itemsFinales.reduce((acc: number, it: any) => acc + (it.subtotal || it.cantidad * (it.precioUnitario || it.precio || 0)), 0);
+
+    console.log("=== PREFACTURA SCREEN ===");
+    console.log("draft:", JSON.stringify(draft, null, 2));
+    console.log("prefacturaCompleta:", JSON.stringify(prefacturaCompleta, null, 2));
+    console.log("clienteFinal:", JSON.stringify(cliente, null, 2));
+    console.log("direccionFinal:", direccion);
 
     async function confirmarPedido() {
         if (!itemsFinales || itemsFinales.length === 0) {
@@ -472,67 +488,78 @@ export function PrefacturaScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Prefactura / Remito</Text>
-                <Text style={styles.muted}>Código: {codigo}</Text>
-                <Text style={styles.muted}>Fecha: {fecha}</Text>
-            </View>
+            <ScrollView 
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={true}
+            >
+                <View style={styles.header}>
+                    <Text style={styles.title}>Prefactura / Remito</Text>
+                    <Text style={styles.muted}>Código: {codigo}</Text>
+                    <Text style={styles.muted}>Fecha: {fecha}</Text>
+                </View>
 
-            <View style={styles.box}>
-                <Text style={styles.boxTitle}>Cliente</Text>
-                <Text style={styles.textStrong}>{cliente?.nombre ?? "-"}</Text>
-                {!!cliente?.telefono && (
-                    <Text style={styles.muted}>Tel: {cliente.telefono}</Text>
-                )}
-                {direccion && (
-                    <Text style={styles.muted}>Dir: {direccion}</Text>
-                )}
-            </View>
-
-            {prefacturaId && (
                 <View style={styles.box}>
-                    <Text style={styles.boxTitle}>Agregar Productos</Text>
-                    <View style={styles.searchRow}>
-                        <TextInput
-                            value={searchVarText}
-                            onChangeText={setSearchVarText}
-                            onSubmitEditing={handleSearchVar}
-                            placeholder="Buscar por nombre, color o talle..."
-                            placeholderTextColor="#666"
-                            returnKeyType="search"
-                            style={styles.searchInput}
-                        />
-                        <Pressable onPress={handleSearchVar} style={styles.searchBtn}>
-                            <Text style={styles.searchBtnText}>🔍</Text>
-                        </Pressable>
+                    <Text style={styles.boxTitle}>Cliente</Text>
+                    <Text style={styles.textStrong}>{cliente?.nombre ?? "-"}</Text>
+                    {!!cliente?.telefono && (
+                        <Text style={styles.muted}>Tel: {cliente.telefono}</Text>
+                    )}
+                    {direccion && (
+                        <Text style={styles.muted}>Dir: {direccion}</Text>
+                    )}
+                </View>
+
+                {prefacturaId && (
+                    <View style={styles.box}>
+                        <Text style={styles.boxTitle}>Agregar Productos</Text>
+                        <View style={styles.searchRow}>
+                            <TextInput
+                                value={searchVarText}
+                                onChangeText={setSearchVarText}
+                                onSubmitEditing={handleSearchVar}
+                                placeholder="Buscar por nombre, color o talle..."
+                                placeholderTextColor="#666"
+                                returnKeyType="search"
+                                style={styles.searchInput}
+                            />
+                            <Pressable onPress={handleSearchVar} style={styles.searchBtn}>
+                                <Text style={styles.searchBtnText}>🔍</Text>
+                            </Pressable>
+                        </View>
+                        <Text style={styles.resultCount}>
+                            {variantesFiltradas.length} producto(s) encontrado(s)
+                        </Text>
+                        <View style={styles.productGrid}>
+                            {variantesFiltradas.slice(0, 20).map((item, index) => (
+                                <View key={`${item.productoId}-${item.colorId}-${item.talleId}`}>
+                                    {renderProducto({ item, index })}
+                                </View>
+                            ))}
+                        </View>
                     </View>
-                    <Text style={styles.resultCount}>
-                        {variantesFiltradas.length} producto(s) encontrado(s)
-                    </Text>
-                    <View style={styles.productGrid}>
-                        {variantesFiltradas.slice(0, 20).map((item, index) => renderProducto({ item, index }))}
+                )}
+
+                <View style={styles.box}>
+                    <Text style={styles.boxTitle}>Detalle</Text>
+                    <View style={styles.tableHead}>
+                        <Text style={[styles.th, { flex: 2}]}>Producto</Text>
+                        <Text style={[styles.th, { flex: 1.5}]}>Variante</Text>
+                        <Text style={[styles.th, { width: 100, textAlign: "center" }]}>Cant</Text>
+                        <Text style={[styles.th, { width: 90, textAlign: "right" }]}>P.Unit</Text>
+                        <Text style={[styles.th, { width: 100, textAlign: "right" }]}>Subtotal</Text>
+                    </View>
+                    <View style={styles.itemsContainer}>
+                        {itemsFinales.map((item, index) => (
+                            <View key={item._key || `${item.productoId}-${item.talleId}-${item.colorId}-${index}`}>
+                                {renderPedidoItem({ item, index })}
+                            </View>
+                        ))}
                     </View>
                 </View>
-            )}
 
-            <View style={styles.box}>
-                <Text style={styles.boxTitle}>Detalle</Text>
-                <View style={styles.tableHead}>
-                    <Text style={[styles.th, { flex: 2}]}>Producto</Text>
-                    <Text style={[styles.th, { flex: 1.5}]}>Variante</Text>
-                    <Text style={[styles.th, { width: 100, textAlign: "center" }]}>Cant</Text>
-                    <Text style={[styles.th, { width: 90, textAlign: "right" }]}>P.Unit</Text>
-                    <Text style={[styles.th, { width: 100, textAlign: "right" }]}>Subtotal</Text>
-                </View>
-                <FlatList
-                    data={itemsFinales}
-                    renderItem={renderPedidoItem}
-                    keyExtractor={(item, index) => `${item.productoId}-${item.talleId}-${item.colorId}-${index}`}
-                    scrollEnabled={false}
-                />
-            </View>
-
-            <ListFooter />
+                <ListFooter />
+            </ScrollView>
         </View>
     );
 }
@@ -540,9 +567,14 @@ export function PrefacturaScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#0b0b0d",
+        backgroundColor: colors.backgroundDark,
+    },
+    scrollContainer: {
+        flex: 1,
+    },
+    scrollContent: {
         padding: 14,
-        justifyContent : "space-between"
+        paddingBottom: 100,
     },
     header: {
         marginBottom: 12,
@@ -551,25 +583,25 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     title: {
-        color: "white",
+        color: colors.textInverse,
         fontSize: 22,
         fontWeight: "900",
     },
     titleMobile: {
-        color: "white",
+        color: colors.textInverse,
         fontSize: 20,
         fontWeight: "900",
         marginBottom: 8,
     },
     muted: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         marginTop: 2,
         fontSize: 14,
     },
     box: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 16,
         padding: 12,
         marginBottom: 12,
@@ -580,13 +612,13 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     boxTitle: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "900",
         marginBottom: 8,
         fontSize: 16,
     },
     textStrong: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "900",
         fontSize: 16,
     },
@@ -596,15 +628,15 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        backgroundColor: "#2a2a33",
+        backgroundColor: colors.surfaceDark,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 10,
-        color: "white",
+        color: colors.textInverse,
         fontSize: 14,
     },
     searchBtn: {
-        backgroundColor: "#3b82f6",
+        backgroundColor: colors.primary,
         borderRadius: 12,
         paddingHorizontal: 14,
         justifyContent: "center",
@@ -615,7 +647,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
     },
     resultCount: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 12,
         marginBottom: 8,
     },
@@ -625,9 +657,9 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     productCard: {
-        backgroundColor: "#3F403F",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 16,
         padding: 12,
         width: "48%",
@@ -637,63 +669,63 @@ const styles = StyleSheet.create({
         marginRight: "2%",
     },
     productCardMobile: {
-        backgroundColor: "#1e1e24",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 12,
         padding: 16,
         marginBottom: 10,
         position: "relative",
     },
     cardTitle: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 14,
         marginBottom: 4,
     },
     productNameMobile: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 16,
         marginBottom: 6,
     },
     productDetail: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 13,
         marginBottom: 2,
     },
     productPriceMobile: {
-        color: "#22c55e",
+        color: colors.success,
         fontWeight: "800",
         fontSize: 18,
         marginTop: 8,
         marginBottom: 12,
     },
     price: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         marginTop: 6,
         fontSize: 14,
     },
     tap: {
-        color: "#3b82f6",
+        color: colors.primary,
         fontWeight: "700",
         marginTop: 10,
         fontSize: 12,
     },
     addButton: {
-        backgroundColor: "#22c55e",
+        backgroundColor: colors.success,
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: "center",
     },
     addButtonText: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 14,
     },
     matchBadge: {
-        backgroundColor: "#4caf50",
+        backgroundColor: colors.success,
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 12,
@@ -703,7 +735,7 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     matchBadgeText: {
-        color: "white",
+        color: colors.textInverse,
         fontSize: 10,
         fontWeight: "bold",
     },
@@ -712,10 +744,10 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 10,
         borderBottomWidth: 1,
-        borderBottomColor: "#2a2a33",
+        borderBottomColor: colors.borderDark,
     },
     th: {
-        color: "#cbd5e1",
+        color: colors.textLight,
         fontWeight: "900",
         fontSize: 12,
     },
@@ -725,10 +757,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         alignItems: "center",
         borderBottomWidth: 1,
-        borderBottomColor: "#2a2a33",
+        borderBottomColor: colors.borderDark,
     },
     pedidoRowAlt: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
     },
     pedidoColProduct: {
         flex: 2,
@@ -744,45 +776,45 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     pedidoText: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "700",
         fontSize: 13,
     },
     pedidoTextMuted: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontWeight: "700",
         fontSize: 12,
     },
     pedidoPrice: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "700",
         fontSize: 13,
         width: 90,
         textAlign: "right",
     },
     pedidoSubtotalText: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 13,
         width: 100,
         textAlign: "right",
     },
     pedidoCardMobile: {
-        backgroundColor: "#1e1e24",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 12,
         padding: 16,
         marginBottom: 10,
     },
     pedidoProductName: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 16,
         marginBottom: 4,
     },
     pedidoVariant: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 13,
         marginBottom: 12,
     },
@@ -793,7 +825,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     pedidoLabel: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 14,
     },
     qtyControls: {
@@ -802,7 +834,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     qtyBtn: {
-        backgroundColor: "#3b82f6",
+        backgroundColor: colors.primary,
         width: 40,
         height: 40,
         borderRadius: 10,
@@ -810,19 +842,19 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     qtyBtnText: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "900",
         fontSize: 20,
     },
     qtyValue: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 18,
         minWidth: 30,
         textAlign: "center",
     },
     qtyBtnSmall: {
-        backgroundColor: "#2a2a33",
+        backgroundColor: colors.surfaceDark,
         width: 28,
         height: 28,
         borderRadius: 6,
@@ -830,12 +862,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     qtyBtnTextSmall: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "900",
         fontSize: 16,
     },
     qtyValueSmall: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 14,
         minWidth: 25,
@@ -847,29 +879,29 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: "#2a2a33",
+        borderTopColor: colors.borderDark,
     },
     pedidoPriceLabel: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 13,
     },
     pedidoSubtotal: {
-        color: "#22c55e",
+        color: colors.success,
         fontWeight: "800",
         fontSize: 16,
     },
     footer: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         paddingVertical: 16,
         paddingHorizontal: 16,
         borderTopWidth: 2,
-        borderTopColor: "#3b82f6",
+        borderTopColor: colors.primary,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         marginHorizontal: -14,
         marginBottom: -14,
         paddingBottom: 30,
-        shadowColor: "#000",
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -879,12 +911,12 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     footerTotalLabel: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 14,
         marginBottom: 4,
     },
     footerTotalAmount: {
-        color: "white",
+        color: colors.textInverse,
         fontSize: 28,
         fontWeight: "900",
     },
@@ -894,56 +926,56 @@ const styles = StyleSheet.create({
     },
     btnSecondary: {
         flex: 1,
-        backgroundColor: "#2a2a33",
+        backgroundColor: colors.surfaceDark,
         paddingVertical: 14,
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
     },
     btnSecondaryText: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontWeight: "700",
         fontSize: 14,
     },
     btnConfirm: {
         flex: 2,
-        backgroundColor: "#22c55e",
+        backgroundColor: colors.success,
         paddingVertical: 14,
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#22c55e",
+        shadowColor: colors.success,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 5,
     },
     btnConfirmText: {
-        color: "white",
+        color: colors.textInverse,
         fontWeight: "800",
         fontSize: 16,
     },
     footerMobile: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         paddingVertical : 16, 
         paddingHorizontal: 16,
         borderTopWidth: 2,
-        borderTopColor: "#3b82f6",
+        borderTopColor: colors.primary,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         paddingBottom: 30,
-        shadowColor: "#000",
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 10,
 
     },
-    scrollContent: {
-        paddingBottom: 100,
-    },
     scrollContentMobile: {
         paddingBottom: 150,
         paddingHorizontal: 0,
+    },
+    itemsContainer: {
+        gap: 0,
     },
 });

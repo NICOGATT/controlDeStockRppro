@@ -5,6 +5,7 @@ import { Product } from "../types/Product";
 import { ColorYTalle } from "../types/ColorYTalle";
 import { apiFetch } from "../api/apiClient";
 import { formatMoney } from "../utils/pedido";
+import { colors } from "../theme/colors";
 
 interface ProductProps {
     producto : Product; 
@@ -12,9 +13,10 @@ interface ProductProps {
     onQuitar : (variante : StockProducto) => void; 
     onDelete : () => void; 
     onAgregarVariante : (producto : Product) => void; 
+    onGenerarQr? : (variante : StockProducto) => void; 
 }
 
-export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarVariante} : ProductProps) {
+export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarVariante, onGenerarQr} : ProductProps) {
     const stockTotal = (producto.stockProductos ?? []).reduce((acc, sp) => acc + sp.stock, 0); 
 
     const stockBajo = stockTotal <= 5
@@ -48,22 +50,32 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
 
             {producto.stockProductos?.map((v, index) => (
                 <View key={index} style = {styles.varianteFila}>
-                    <Text style = {styles.varianteTexto}>{v.color?.nombre}</Text>
-                    <Text style = {styles.varianteTexto}>Talle : {v.talle?.nombre} - Cantidad : {v.stock}</Text>
-                    {v.precio != null && (
-                        <Text style = {styles.varianteTexto}>{formatMoney(v.precio)}</Text>
-                    ) }
-                    {/* //Agregue el TouchableOpacity para que no me de error en telefono ya que no se puede poner un onPress en un texto */}
-                    <TouchableOpacity onPress={() => onAgregar(v)} style = {styles.boton}>
-                        <Text style = {styles.textButton}>+Agregar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        onPress={() => onQuitar(v)}
-                        disabled={disableQuitar}
-                        style={[styles.boton, styles.botonDisabled]}
-                    >
-                        <Text style ={styles.textButton}>-Quitar</Text>
-                    </TouchableOpacity>
+                    <View style={styles.varianteHeader}>
+                        <View style={styles.varianteInfo}>
+                            <Text style = {styles.varianteTexto}>{v.color?.nombre}</Text>
+                            <Text style = {styles.varianteTexto}>Talle : {v.talle?.nombre} - Cantidad : {v.stock}</Text>
+                            {v.precio != null && (
+                                <Text style = {styles.varianteTexto}>{formatMoney(v.precio)}</Text>
+                            ) }
+                        </View>
+                        {onGenerarQr && (
+                            <TouchableOpacity onPress={() => onGenerarQr(v)} style = {styles.qrBoton}>
+                                <Text style = {styles.qrBotonText}>📄 QR</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <View style={styles.varianteAcciones}>
+                        <TouchableOpacity onPress={() => onAgregar(v)} style = {styles.boton}>
+                            <Text style = {styles.textButton}>+Agregar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => onQuitar(v)}
+                            disabled={disableQuitar}
+                            style={[styles.boton, styles.botonDisabled]}
+                        >
+                            <Text style ={styles.textButton}>-Quitar</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             ))}
             <Pressable onPress = {onDelete}>
@@ -75,43 +87,46 @@ export function ProductItem({producto, onAgregar, onQuitar, onDelete, onAgregarV
 
 const styles = StyleSheet.create ({
     product : {
-        fontSize : 16
+        fontSize : 16,
+        color: colors.textPrimary
     }, 
     cantidad : {
-        color :  "gray"
+        color :  colors.textLight
     },
     cantidadVendida: {
-        color: "green"
+        color: colors.success
     }, 
     precio: {
         fontWeight: "bold"
     }, 
     cantidad0 : {
-        color: "red"
+        color: colors.error
     }, 
     boton:{
         padding: 5,
         width : 100, 
         borderRadius : 10,
-        backgroundColor : "blue",
+        backgroundColor : colors.primary,
         marginBottom : 10,
     }, 
     botonDisabled: {
         padding : 5,
         width : 100, 
         borderRadius : 10, 
-        backgroundColor : "red"
+        backgroundColor : colors.disabledDark
     }, 
     textButton:{
-        color : "white"
+        color : colors.textInverse
     }, 
     tipoDePrenda : {
-        color : "gray"
+        color : colors.textLight
     }, 
     varianteFila : {
         borderWidth : 1, 
+        borderColor: colors.borderDark,
         borderRadius : 10, 
-        padding : 10
+        padding : 10,
+        backgroundColor: colors.surfaceDark
     }, 
     colorCirculo : {
         borderRadius : 10, 
@@ -120,10 +135,35 @@ const styles = StyleSheet.create ({
     }, 
     varianteTexto : {
         fontSize : 12,
-        backgroundColor : "gray",
+        color: colors.textSecondary,
         fontWeight : "700"
     }, 
+    varianteHeader : {
+        flexDirection : "row",
+        justifyContent : "space-between",
+        alignItems : "flex-start"
+    },
+    varianteInfo : {
+        flex : 1
+    },
+    varianteAcciones : {
+        flexDirection : "row",
+        gap : 8,
+        marginTop : 8
+    },
+    qrBoton : {
+        backgroundColor : colors.info,
+        paddingVertical : 6,
+        paddingHorizontal : 12,
+        borderRadius : 8
+    },
+    qrBotonText : {
+        color : colors.textInverse,
+        fontWeight : "700",
+        fontSize : 12
+    },
     productoid : {
-        fontWeight : "700"
+        fontWeight : "700",
+        color: colors.textSecondary
     }
 });

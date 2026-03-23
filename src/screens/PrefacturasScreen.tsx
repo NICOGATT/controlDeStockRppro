@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react
 import { apiFetch } from "../api/apiClient";
 import { Prefactura } from "../types/Prefactura";
 import { useNavigation } from "@react-navigation/native";
+import { colors } from "../theme/colors";
 
 export default function PrefacturasScreen() {
     const navigation = useNavigation<any>();
@@ -37,21 +38,36 @@ export default function PrefacturasScreen() {
                     </TouchableOpacity>
                 )}
                 ListEmptyComponent={<Text style={styles.muted}>No hay prefacturas</Text>}
+                contentContainerStyle={styles.listContent}
             />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, backgroundColor: "#0b0b0d" },
+    container: { 
+        flex: 1, 
+        backgroundColor: colors.backgroundDark 
+    },
+    listContent: {
+        padding: 16,
+        paddingBottom: 90
+    },
     card: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 16,
         padding: 14,
         marginBottom: 10,
     },
-    cardTitle: { color: "white", fontWeight: "900", fontSize: 16 },
-    muted: { color: "#9aa4b2", marginTop: 4 },
+    cardTitle: { 
+        color: colors.textInverse, 
+        fontWeight: "900", 
+        fontSize: 16 
+    },
+    muted: { 
+        color: colors.textLight, 
+        marginTop: 4 
+    },
 });

@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from "react"; 
-import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform, ScrollView} from "react-native"; 
+import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform, ScrollView, ActivityIndicator} from "react-native"; 
 import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
 import { Cliente } from "../types/Cliente";
@@ -10,11 +10,23 @@ import { apiFetch } from "../api/apiClient";
 import { Direccion } from "../types/Direccion";
 import { Prefactura } from "../types/Prefactura";
 import { PrefacturaProducto } from "../types/PrefacturaProducto";
+import { colors } from "../theme/colors";
 
 
 
 const formatMoney = (n: number) =>
     new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
+
+const colorMap: Record<string, string> = {
+    rojo: '#E53935', azul: '#1E88E5', verde: '#43A047', amarillo: '#FDD835',
+    negro: '#212121', blanco: '#FAFAFA', gris: '#757575', rosa: '#EC407A',
+    naranja: '#FB8C00', morado: '#8E24AA', celeste: '#4FC3F7', beige: '#D7CCC8',
+    marron: '#795548', violeta: '#7B1FA2', dorado: '#FFD700', plateado: '#C0C0C0',
+};
+
+const getColorHex = (colorName?: string): string => {
+    return colorName ? (colorMap[colorName.toLowerCase()] || colors.textLight) : colors.textLight;
+};
 
 export default function ArmarPedidoScreen({navigation} : any) {
     const { width } = useWindowDimensions();
@@ -24,11 +36,29 @@ export default function ArmarPedidoScreen({navigation} : any) {
     const [clientesSel, setClientesSel] = useState<Cliente>(); 
 
     const [modalCliente, setModalCliente] = useState(false);
+    const [loadingCliente, setLoadingCliente] = useState(false);
+    
     const [nuevoNombre, setNuevoNombre] = useState("");
     const [nuevoTel, setNuevoTel] = useState("");
+    const [nuevoCuit, setNuevoCuit] = useState("");
+    const [nuevoEmail, setNuevoEmail] = useState("");
+    const [nuevoEmpresa, setNuevoEmpresa] = useState("");
+    const [nuevaCondicion, setNuevaCondicion] = useState("");
     const [nuevoDir, setNuevoDir] = useState("");
+    const [nuevoCP, setNuevoCP] = useState("");
+    const [nuevaCiudad, setNuevaCiudad] = useState("");
+    const [nuevaProvincia, setNuevaProvincia] = useState("");
+    
     const [direccion, setDireccion] = useState<Direccion | null>(null);
     const [direccion2, setDireccion2] = useState<string>("")
+    
+    const condicionesTributarias = [
+        "Consumidor Final",
+        "Responsable Inscripto",
+        "Monotributista",
+        "Exento",
+        "No Responsable"
+    ];
 
     const [qVar, setQVar] = useState("");
     const [searchVarText, setSearchVarText] = useState("");
@@ -96,13 +126,15 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
     async function loadClientes() {
         const res = await apiFetch<Cliente[]>('/api/clientes');
-        //Adapta mapping segun tu backend
+        console.log("=== LOAD CLIENTES ===");
+        console.log("API Response:", JSON.stringify(res, null, 2));
         const mapped : Cliente[] = res.map((c : any) => ({ 
             id : c.id, 
             nombre : c.nombre, 
             telefono : c.telefono,
             direccion : c.direccion
         })); 
+        console.log("Mapped:", JSON.stringify(mapped, null, 2));
         setClientes(mapped);
         if(!clientesSel && mapped.length > 0) setClientesSel(mapped[0]);
     }
@@ -222,34 +254,54 @@ export default function ArmarPedidoScreen({navigation} : any) {
             return;
         }
         try {
+            setLoadingCliente(true);
             
             const res = await apiFetch<Cliente>('/api/clientes', {
                 method : 'POST', 
                 body : {
                     nombre : nuevoNombre.trim(),
                     telefono : nuevoTel.trim() || undefined,
-                    direccion : nuevoDir.trim()
+                    cuit : nuevoCuit.trim() || undefined,
+                    email : nuevoEmail.trim() || undefined,
+                    nombreEmpresa : nuevoEmpresa.trim() || undefined,
+                    condicionTributaria : nuevaCondicion || undefined,
+                    direccion : nuevoDir.trim(),
+                    codigoPostal : nuevoCP.trim() || undefined,
+                    ciudad : nuevaCiudad.trim() || undefined,
+                    provincia : nuevaProvincia.trim() || undefined
                 }
             })
             
-            const direcciones = await crearDireccion(res.id);
             const c : Cliente = {
                 id : res.id,
                 nombre : res.nombre,
                 telefono : res.telefono,
-                direccion : direcciones
+                direccion : { id: 0, direccion: nuevoDir.trim(), clienteId: res.id }
             }
 
             setClientes((p) => [c, ...p]);
             setClientesSel(c);
 
-
-            setNuevoNombre("");                                     
-            setNuevoTel("");
+            resetFormCliente();
             setModalCliente(false);
         } catch (err) {
             Alert.alert('Error', 'No se pudo crear el cliente');
+        } finally {
+            setLoadingCliente(false);
         }
+    }
+
+    function resetFormCliente() {
+        setNuevoNombre("");                                    
+        setNuevoTel("");
+        setNuevoCuit("");
+        setNuevoEmail("");
+        setNuevoEmpresa("");
+        setNuevaCondicion("");
+        setNuevoDir("");
+        setNuevoCP("");
+        setNuevaCiudad("");
+        setNuevaProvincia("");
     }
 
     async function crearDireccion (clienteId : number) {
@@ -343,11 +395,13 @@ export default function ArmarPedidoScreen({navigation} : any) {
         const bodyPrefactura = {
             cliente: clientesSel.nombre.trim(),
             telefono: clientesSel.telefono?.trim() || "",
-            // Usamos la propiedad direccion del objeto Direccion
             direccion: direccionStr 
         };
         try {
-            console.log("BODY PREF:", bodyPrefactura);
+            console.log("=== GO PREFACTURA ===");
+            console.log("clientesSel:", JSON.stringify(clientesSel, null, 2));
+            console.log("direccionStr:", direccionStr);
+            console.log("BODY PREF:", JSON.stringify(bodyPrefactura, null, 2));
             // 2. Intentamos crear la prefactura
             const prefactura = await apiFetch<Prefactura>('/api/preFacturas', {
                 method: "POST",
@@ -377,7 +431,14 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 });
                 console.log("Response productos:", resProductos);
                 navigation.navigate('Prefactura', { 
-                    draft: { ...draft, direccion: direccionStr } 
+                    draft: { 
+                        codigo: generarCodigoPedido(), 
+                        fechaISO: new Date().toISOString(),
+                        cliente: clientesSel,
+                        direccion: direccionStr || "", 
+                        items, 
+                        total,
+                    } 
                 });
             } else {
                 console.error("El servidor respondió pero no devolvió un ID de prefactura.");
@@ -393,22 +454,24 @@ export default function ArmarPedidoScreen({navigation} : any) {
     }
     const columns = isSmall ? 1 : 2;
     return ( 
-        <View style={{flex: 1}}>
-        <ScrollView style = {{flex : 1, padding : 16}} contentContainerStyle={{paddingBottom: 120}} nestedScrollEnabled={true}>
-            <Text style = {{fontSize : 18, fontWeight : "800", marginBottom: 10}}>Armar pedido</Text>
+        <View style={[styles.screenContainer]}>
+        <ScrollView style = {styles.scrollContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <Text style = {styles.screenTitle}>Armar pedido</Text>
+            
             {/* CLIENTE */}
             <View style = {styles.section}>
                 <View style = {styles.rowBetween}>
                     <Text style = {styles.sectionTitle}>Cliente</Text>
-                    <Pressable onPress = {() => setModalCliente(true)} style = {styles.btnGhost}>
-                        <Text style = {styles.btnGhostText}>+ Agregar</Text>
+                    <Pressable onPress = {() => setModalCliente(true)} style = {styles.btnAddSmall}>
+                        <Text style = {styles.btnAddSmallText}>+ Agregar</Text>
                     </Pressable>
                 </View>
 
                 <View style={styles.searchContainer}>
                     <TextInput
-                        style={styles.searchInputCliente}
-                        placeholder="Buscar cliente por nombre o telefono..."
+                        style={styles.searchInput}
+                        placeholder="Buscar cliente..."
+                        placeholderTextColor={colors.textLight}
                         value={searchClienteText}
                         onChangeText={setSearchClienteText}
                         onSubmitEditing={handleSearchCliente}
@@ -420,35 +483,35 @@ export default function ArmarPedidoScreen({navigation} : any) {
                 </View>
 
                 <Text style={styles.resultCount}>
-                    {filteredClientes.length} cliente(s) encontrado(s)
+                    {filteredClientes.length} cliente(s)
                 </Text>
 
-                <FlatList
-                    data = {filteredClientes}
-                    keyExtractor={(c) => String(c.id)}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle = {{gap : 8}}
-                    renderItem={({item}) => {
-                        const active = item.id === clientesSel?.id
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+                    {filteredClientes.map((cliente) => {
+                        const active = cliente.id === clientesSel?.id;
                         return (
                             <Pressable
-                            onPress={() => setClientesSel(item)}
-                            style = {[styles.clientChip, active && styles.clientChipActive]}
+                                key={String(cliente.id)}
+                                onPress={() => setClientesSel(cliente)}
+                                style={[styles.chip, active && styles.chipActive]}
                             >
-                                <Text style = {[styles.clientChipText, active && styles.clientChipTextActive]}>{item.nombre}</Text>
+                                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                                    {cliente.nombre}
+                                </Text>
                             </Pressable>
-                        )
-                    }}
-                />
+                        );
+                    })}
+                </ScrollView>
             </View>
-            {/*Buscar */}
+            
+            {/* Productos */}
             <View style = {styles.section}>
-                <Text style = {styles.sectionTitle}>Producto (Color + talle)</Text>
+                <Text style = {styles.sectionTitle}>Buscar producto</Text>
                 <View style={styles.searchContainer}>
                     <TextInput
-                        style={styles.searchInputCliente}
-                        placeholder="Buscar por nombre, color o talle..."
+                        style={styles.searchInput}
+                        placeholder="Nombre, color o talle..."
+                        placeholderTextColor={colors.textLight}
                         value={searchVarText}
                         onChangeText={setSearchVarText}
                         onSubmitEditing={handleSearchVar}
@@ -459,95 +522,252 @@ export default function ArmarPedidoScreen({navigation} : any) {
                     </Pressable>
                 </View>
                 <Text style={styles.resultCount}>
-                    {variantesFiltradas.length} producto(s) encontrado(s)
+                    {variantesFiltradas.length} producto(s)
                 </Text>
-                <FlatList
-                    data = {variantesFiltradas}
-                    key = {columns}
-                    numColumns={columns}
-                    keyExtractor={(v) => {
-                        return `${v.productoId}-${v.colorId}-${v.talleId}`;
-                    }}
-                    columnWrapperStyle = {columns > 1 ? {gap : 10} : undefined}
-                    contentContainerStyle = {{gap : 10, paddingTop : 10}}
-                    renderItem = {({item}) => {
+                
+                <View style={styles.gridContainer}>
+                    {variantesFiltradas.map((item) => {
                         const matchReason = getVarMatchReason(item);
                         const isHighlighted = qVar.trim() !== '';
-                        return(
+                        return (
                             <Pressable
-                                onPress = {() => addStockProductoToItems(item)}
-                                style = {[styles.card, columns > 1 && {flex : 1}, isHighlighted && styles.cardHighlighted]}
+                                key={`${item.productoId}-${item.colorId}-${item.talleId}`}
+                                onPress={() => addStockProductoToItems(item)}
+                                style={[styles.productCard, isHighlighted && styles.productCardHighlighted]}
                             >
                                 {isHighlighted && matchReason && (
                                     <View style={styles.matchBadge}>
                                         <Text style={styles.matchBadgeText}>✓ {matchReason}</Text>
                                     </View>
                                 )}
-                                <Text style = {styles.cardTitle}>{item.producto?.nombre}</Text>
-                                <Text style = {styles.muted}>{item.talle?.nombre} • {item.color?.nombre}</Text>
-                                <Text style = {styles.muted}>Stock: {item.stock}</Text>
-                                <Text style = {styles.price}>{formatMoney(item.precio ?? 0)}</Text> 
-                                <Text style = {styles.tap}>Toca para agregar</Text>
+                                <Text style={styles.productName}>{item.producto?.nombre}</Text>
+                                <View style={styles.productMeta}>
+                                    <View style={[styles.colorDot, { backgroundColor: getColorHex(item.color?.nombre) }]} />
+                                    <Text style={styles.productVariant}>
+                                        {item.color?.nombre} • {item.talle?.nombre}
+                                    </Text>
+                                </View>
+                                <View style={styles.productFooter}>
+                                    <View>
+                                        <Text style={styles.productStock}>Stock: {item.stock}</Text>
+                                        <Text style={styles.productPrice}>{formatMoney(item.precio ?? 0)}</Text>
+                                    </View>
+                                    <View style={styles.addButton}>
+                                        <Text style={styles.addButtonText}>+</Text>
+                                    </View>
+                                </View>
                             </Pressable>
                         );
-                    }}
-                />
+                    })}
+                </View>
             </View>
+            
             {/* Items del pedido */}
             <View style = {styles.section}>
-                <Text style = {styles.sectionTitle}>Items del pedido</Text>
+                <Text style = {styles.sectionTitle}>Items del pedido ({items.length})</Text>
                 {items.length === 0 ? (
-                    <Text style = {styles.mutedItem}>No hay items agregados</Text>
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyIcon}>🛒</Text>
+                        <Text style={styles.emptyText}>No hay items agregados</Text>
+                        <Text style={styles.emptyHint}>Buscá y tocá un producto para agregarlo</Text>
+                    </View>
                 ): (
-                    <FlatList
-                        data = {items}
-                        keyExtractor={(it) => `${it.productoId}-${it.talleId}-${it.colorId}`}
-                        contentContainerStyle = {{gap : 10, paddingTop : 10}}
-                        renderItem={({item}) => (
-                            <View style = {styles.itemRow}>
-                                <View style = {{flex : 1}}>
-                                    <Text style = {styles.itemName}>{item.nombreProducto}</Text>
-                                    <Text style = {styles.muted}>{item.colorNombre} • {item.talleNombre}</Text>
-                                    <Text style = {styles.price}>{formatMoney(item.precioUnitario ?? 0)} c/u</Text>
+                    <View style={styles.itemsList}>
+                        {items.map((item) => (
+                            <View key={`${item.productoId}-${item.talleId}-${item.colorId}`} style = {styles.orderItem}>
+                                <View style = {styles.orderItemInfo}>
+                                    <Text style = {styles.orderItemName}>{item.nombreProducto}</Text>
+                                    <Text style = {styles.orderItemVariant}>
+                                        {item.colorNombre} • {item.talleNombre}
+                                    </Text>
+                                    <Text style = {styles.orderItemPrice}>
+                                        {formatMoney(item.precioUnitario ?? 0)} c/u
+                                    </Text>
                                 </View>
-                                <View style = {styles.qtyBox}>
-                                    <Pressable onPress = {() => changeQty(item.productoId, item.talleId, item.colorId, -1)} style = {styles.qtyBtn}>
-                                        <Text style = {styles.qtyBtnText}>-</Text>
+                                <View style = {styles.orderItemQty}>
+                                    <Pressable 
+                                        onPress={() => changeQty(item.productoId, item.talleId, item.colorId, -1)} 
+                                        style={styles.qtyBtn}
+                                    >
+                                        <Text style={styles.qtyBtnText}>-</Text>
                                     </Pressable>
-                                    <Text style = {styles.qty}>{item.cantidad}</Text>
-                                    <Pressable onPress = {() => changeQty(item.productoId, item.talleId, item.colorId, +1)} style = {styles.qtyBtn}>
-                                        <Text style = {styles.qtyBtnText}>+</Text>
+                                    <Text style={styles.qtyValue}>{item.cantidad}</Text>
+                                    <Pressable 
+                                        onPress={() => changeQty(item.productoId, item.talleId, item.colorId, +1)} 
+                                        style={styles.qtyBtn}
+                                    >
+                                        <Text style={styles.qtyBtnText}>+</Text>
                                     </Pressable>
                                 </View>
-
-                                <View style = {{width : 110, alignItems : "flex-end"}}>
-                                    <Text style = {styles.price}>{formatMoney(item.subtotal ?? 0)}</Text>
-                                </View>
+                                <Text style={styles.orderItemSubtotal}>
+                                    {formatMoney(item.subtotal ?? 0)}
+                                </Text>
                             </View>
-                        )}
-                    />
+                        ))}
+                    </View>
                 )}
             </View>
 
             {/* Modal nuevo cliente */}
-            <Modal visible={modalCliente} transparent animationType = "fade" onRequestClose = {() => setModalCliente(false)}>
-                <View style = {styles.modalBackdrop}>
-                    <View style = {styles.modalCard}>
-                        <Text style = {styles.modalTitle}>Agregar cliente</Text>
-                        <TextInput value = {nuevoNombre} onChangeText={setNuevoNombre} placeholder="Nombre" style = {styles.input}/>                  
-                        <TextInput value = {nuevoTel} onChangeText={setNuevoTel} placeholder="Telefono" style = {styles.input}/>                  
-                        <TextInput value = {nuevoDir} onChangeText={setNuevoDir} placeholder="Direccion" style = {styles.input}/>     
-                        <View style = {styles.rowBetween}>
-                            <Pressable onPress={() => setModalCliente(false)} style = {styles.btnGhost}>
-                                <Text style = {styles.btnGhostText}>Cancelar</Text>
-                            </Pressable>
-
-                            <Pressable onPress={crearCliente} style = {[styles.btn, styles.btnPrimary]}>
-                                <Text style = {styles.btnText}>Guardar</Text>
-                            </Pressable>
-                        </View>
-
-                        {Platform.OS === "android" ? <View style = {{height : 6}} /> : null}
+            <Modal visible={modalCliente} transparent animationType="slide" onRequestClose={() => setModalCliente(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>👤 Nuevo Cliente</Text>
+                                <TouchableOpacity onPress={() => { resetFormCliente(); setModalCliente(false); }} style={styles.modalCloseBtn}>
+                                    <Text style={styles.modalCloseText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <Text style={styles.sectionLabel}>DATOS PERSONALES</Text>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Nombre *</Text>
+                                <TextInput 
+                                    value={nuevoNombre} 
+                                    onChangeText={setNuevoNombre} 
+                                    placeholder="Nombre completo"
+                                    placeholderTextColor={colors.textLight}
+                                    style={styles.inputField}
+                                />
+                            </View>
+                            
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Teléfono</Text>
+                                    <TextInput 
+                                        value={nuevoTel} 
+                                        onChangeText={setNuevoTel} 
+                                        placeholder="Ej: 11-1234-5678"
+                                        placeholderTextColor={colors.textLight}
+                                        style={styles.inputField}
+                                        keyboardType="phone-pad"
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>CUIT / DNI</Text>
+                                    <TextInput 
+                                        value={nuevoCuit} 
+                                        onChangeText={setNuevoCuit} 
+                                        placeholder="Ej: 20-12345678-9"
+                                        placeholderTextColor={colors.textLight}
+                                        style={styles.inputField}
+                                    />
+                                </View>
+                            </View>
+                            
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Email</Text>
+                                <TextInput 
+                                    value={nuevoEmail} 
+                                    onChangeText={setNuevoEmail} 
+                                    placeholder="cliente@ejemplo.com"
+                                    placeholderTextColor={colors.textLight}
+                                    style={styles.inputField}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                            
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Empresa</Text>
+                                    <TextInput 
+                                        value={nuevoEmpresa} 
+                                        onChangeText={setNuevoEmpresa} 
+                                        placeholder="Nombre de empresa"
+                                        placeholderTextColor={colors.textLight}
+                                        style={styles.inputField}
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Condición</Text>
+                                    <View style={styles.pickerContainer}>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                            {condicionesTributarias.map((cond) => (
+                                                <TouchableOpacity
+                                                    key={cond}
+                                                    onPress={() => setNuevaCondicion(cond)}
+                                                    style={[styles.condChip, nuevaCondicion === cond && styles.condChipActive]}
+                                                >
+                                                    <Text style={[styles.condChipText, nuevaCondicion === cond && styles.condChipTextActive]}>
+                                                        {cond}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                </View>
+                            </View>
+                            
+                            <Text style={styles.sectionLabel}>DIRECCIÓN</Text>
+                            
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Dirección</Text>
+                                <TextInput 
+                                    value={nuevoDir} 
+                                    onChangeText={setNuevoDir} 
+                                    placeholder="Calle, número, piso, depto..."
+                                    placeholderTextColor={colors.textLight}
+                                    style={styles.inputField}
+                                />
+                            </View>
+                            
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Código Postal</Text>
+                                    <TextInput 
+                                        value={nuevoCP} 
+                                        onChangeText={setNuevoCP} 
+                                        placeholder="Ej: C1001"
+                                        placeholderTextColor={colors.textLight}
+                                        style={styles.inputField}
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Ciudad</Text>
+                                    <TextInput 
+                                        value={nuevaCiudad} 
+                                        onChangeText={setNuevaCiudad} 
+                                        placeholder="Ciudad"
+                                        placeholderTextColor={colors.textLight}
+                                        style={styles.inputField}
+                                    />
+                                </View>
+                            </View>
+                            
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Provincia</Text>
+                                <TextInput 
+                                    value={nuevaProvincia} 
+                                    onChangeText={setNuevaProvincia} 
+                                    placeholder="Provincia"
+                                    placeholderTextColor={colors.textLight}
+                                    style={styles.inputField}
+                                />
+                            </View>
+                            
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity 
+                                    onPress={() => { resetFormCliente(); setModalCliente(false); }} 
+                                    style={styles.cancelButton}
+                                >
+                                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    onPress={crearCliente} 
+                                    style={[styles.saveButton, loadingCliente && styles.saveButtonDisabled]}
+                                    disabled={loadingCliente}
+                                >
+                                    {loadingCliente ? (
+                                        <ActivityIndicator size="small" color={colors.textInverse} />
+                                    ) : (
+                                        <Text style={styles.saveButtonText}>💾 Guardar Cliente</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -556,20 +776,20 @@ export default function ArmarPedidoScreen({navigation} : any) {
         <View style = {styles.footerFixed}>
             <View style = {styles.footerLeft}>
                 <Text style = {styles.mutedFooter}>Total:</Text>
-                <Text style = {{fontSize : 18, fontWeight : "800", color : "white"}}>{formatMoney(total)}</Text>
+                <Text style = {{fontSize : 18, fontWeight : "800", color : colors.textInverse}}>{formatMoney(total)}</Text>
             </View>
             <View style = {styles.footerButtons}>
                 <TouchableOpacity 
                     onPress={goPrefactura}
                     style = {styles.footerBtn}
                 >
-                    <Text style = {{color : "white", fontWeight : "800"}}>Prefactura</Text>
+                    <Text style = {{color : colors.textInverse, fontWeight : "800"}}>Prefactura</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                     onPress={confirmarPedido}
-                    style = {[styles.footerBtn, {backgroundColor : "#22c55e"}]}
+                    style = {[styles.footerBtn, {backgroundColor : colors.success}]}
                 >
-                    <Text style = {{color : "white", fontWeight : "800"}}>Confirmar</Text>
+                    <Text style = {{color : colors.textInverse, fontWeight : "800"}}>Confirmar</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -580,27 +800,27 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 14, backgroundColor: "#0b0b0d" },
-    title: { fontSize: 22, fontWeight: "800", color: "white", marginBottom: 10 },
+    container: { flex: 1, padding: 16, backgroundColor: colors.backgroundDark, paddingBottom: 90 },
+    title: { fontSize: 22, fontWeight: "800", color: colors.textInverse, marginBottom: 10 },
 
     section: { marginTop: 12 },
-    sectionTitle: { color: "black", fontSize: 16, fontWeight: "700" },
+    sectionTitle: { color: colors.textInverse, fontSize: 16, fontWeight: "700" },
 
     rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 
     input: {
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        color: "white",
+        color: colors.textInverse,
         flex: 1,
     },
 
     btn: {
-        backgroundColor: "#2a2a33",
+        backgroundColor: colors.surfaceDark,
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: 12,
@@ -608,63 +828,47 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    btnPrimary: { backgroundColor: "#3b82f6" },
-    btnText: { color: "white", fontWeight: "700" },
+    btnPrimary: { backgroundColor: colors.primary },
+    btnText: { color: colors.textInverse, fontWeight: "700" },
 
     btnGhost: { paddingHorizontal: 10, paddingVertical: 8 },
-    btnGhostText: { color: "#9aa4b2", fontWeight: "700" },
+    btnGhostText: { color: colors.textLight, fontWeight: "700" },
 
     clientChip: {
-        backgroundColor: "#8f8f95",
-        borderColor: "#2a2a33",
+        backgroundColor: colors.surfaceDark,
+        borderColor: colors.borderDark,
         borderWidth: 1,
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 999,
     },
-    clientChipActive: { borderColor: "#3b82f6", backgroundColor: "black"},
-    clientChipText: { color: "#cbd5e1", fontWeight: "700" },
-    clientChipTextActive: { color: "white" },
+    clientChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+    clientChipText: { color: colors.textInverse, fontWeight: "700" },
+    clientChipTextActive: { color: colors.textInverse },
 
     searchRow: { flexDirection: "row", marginTop: 10 },
 
     card: {
-        backgroundColor: "#3F403F",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 16,
         padding: 12,
     },
-    cardTitle: { color: "white", fontWeight: "800" },
-    muted: { color: "#CED0CE", marginTop: 2 },
-    price: { color: "white", fontWeight: "800", marginTop: 6 },
-    tap: { color: "#3b82f6", fontWeight: "700", marginTop: 10 },
-
-    itemRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#15151a",
-        borderWidth: 1,
-        borderColor: "#2a2a33",
-        borderRadius: 16,
-        padding: 12,
-        gap: 10,
-    },
-    itemName: { color: "white", fontWeight: "800" },
+    cardTitle: { color: colors.textInverse, fontWeight: "800" },
+    muted: { color: colors.textLight, marginTop: 2 },
+    price: { color: colors.primary, fontWeight: "800", marginTop: 6 },
+    tap: { color: colors.primary, fontWeight: "700", marginTop: 10 },
 
     qtyBox: {
         flexDirection: "row",
         alignItems: "center",
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 14,
         overflow: "hidden",
     },
-    qtyBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#1b1b22" },
-    qtyBtnText: { color: "white", fontWeight: "900", fontSize: 16 },
-    qty: { color: "white", fontWeight: "800", paddingHorizontal: 12 },
-
-    subtotal: { color: "white", fontWeight: "900" },
+    subtotal: { color: colors.textInverse, fontWeight: "900" },
 
     footer: {
         marginTop: "auto",
@@ -675,42 +879,42 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 10,
     },
-    total: { color: "white", fontSize: 18, fontWeight: "900" },
+    total: { color: colors.textInverse, fontSize: 18, fontWeight: "900" },
 
-    modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 16 },
+    modalBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: "center", padding: 16 },
     modalCard: {
-        backgroundColor: "#0f0f14",
+        backgroundColor: colors.backgroundDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 18,
         padding: 14,
         gap: 10,
     },
-    modalTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 6 },
-    mutedItem : {color : "black"},
+    modalTitle: { color: colors.textInverse, fontSize: 18, fontWeight: "900", marginBottom: 6 },
+    mutedItem : {color: colors.textSecondary},
     footerFixed: {
         position: "absolute",
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: "#1a1a2e",
+        backgroundColor: colors.surfaceDark,
         padding: 16,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         borderTopWidth: 1,
-        borderTopColor: "#333",
+        borderTopColor: colors.borderDark,
     },
     footerLeft: {
         alignItems: "flex-start",
     },
-    mutedFooter: { color: "#ccc", marginTop: 2 },
+    mutedFooter: { color: colors.textLight, marginTop: 2 },
     footerButtons: {
         flexDirection: "row",
         gap: 10,
     },
     footerBtn: {
-        backgroundColor: "#111",
+        backgroundColor: colors.primaryDark,
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 12,
@@ -723,17 +927,17 @@ const styles = StyleSheet.create({
     },
     searchInputCliente: {
         flex: 1,
-        backgroundColor: "#15151a",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 1,
-        borderColor: "#2a2a33",
+        borderColor: colors.borderDark,
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        color: "white",
+        color: colors.textInverse,
         fontSize: 14,
     },
     searchBtn: {
-        backgroundColor: "#3b82f6",
+        backgroundColor: colors.primary,
         borderRadius: 12,
         paddingHorizontal: 14,
         justifyContent: "center",
@@ -744,17 +948,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
     },
     resultCount: {
-        color: "#9aa4b2",
+        color: colors.textLight,
         fontSize: 12,
         marginBottom: 8,
     },
     cardHighlighted: {
-        backgroundColor: "#3a3a2a",
+        backgroundColor: colors.surfaceDark,
         borderWidth: 2,
-        borderColor: "#ffc107",
+        borderColor: colors.warning,
     },
     matchBadge: {
-        backgroundColor: "#4caf50",
+        backgroundColor: colors.success,
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 12,
@@ -765,8 +969,360 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     matchBadgeText: {
-        color: "white",
+        color: colors.textInverse,
         fontSize: 13,
         fontWeight: "bold",
+    },
+    
+    // Modal Cliente Mejorado
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        justifyContent: 'flex-end',
+    },
+    modalContainer: {
+        backgroundColor: colors.surfaceDark,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '90%',
+    },
+    modalContent: {
+        padding: 20,
+        paddingBottom: 40,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalCloseBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.backgroundDark,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalCloseText: {
+        color: colors.textLight,
+        fontSize: 16,
+    },
+    sectionLabel: {
+        color: colors.textLight,
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
+        marginBottom: 12,
+        marginTop: 8,
+    },
+    inputGroup: {
+        marginBottom: 12,
+    },
+    inputLabel: {
+        color: colors.textLight,
+        fontSize: 12,
+        marginBottom: 6,
+        fontWeight: '500',
+    },
+    inputField: {
+        backgroundColor: colors.backgroundDark,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        color: colors.textInverse,
+        fontSize: 15,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    pickerContainer: {
+        backgroundColor: colors.backgroundDark,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+        borderRadius: 10,
+        padding: 8,
+    },
+    condChip: {
+        backgroundColor: colors.surfaceDark,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+    },
+    condChipActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    condChipText: {
+        color: colors.textLight,
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    condChipTextActive: {
+        color: colors.textInverse,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 20,
+    },
+    cancelButton: {
+        flex: 1,
+        backgroundColor: colors.backgroundDark,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    cancelButtonText: {
+        color: colors.textLight,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    saveButton: {
+        flex: 2,
+        backgroundColor: colors.primary,
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    saveButtonDisabled: {
+        opacity: 0.7,
+    },
+    saveButtonText: {
+        color: colors.textInverse,
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    
+    // Pantalla principal
+    screenContainer: {
+        flex: 1,
+        backgroundColor: colors.backgroundDark,
+    },
+    scrollContainer: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: 16,
+        paddingBottom: 140,
+    },
+    screenTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: colors.textInverse,
+        marginBottom: 20,
+    },
+    
+    // Search
+    searchInput: {
+        flex: 1,
+        backgroundColor: colors.surfaceDark,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        color: colors.textInverse,
+        fontSize: 15,
+    },
+    
+    // Chips de cliente
+    horizontalList: {
+        gap: 10,
+        paddingVertical: 8,
+    },
+    chip: {
+        backgroundColor: colors.surfaceDark,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+    },
+    chipActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    chipText: {
+        color: colors.textInverse,
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    chipTextActive: {
+        color: colors.textInverse,
+    },
+    
+    // Botón agregar pequeño
+    btnAddSmall: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    btnAddSmallText: {
+        color: colors.textInverse,
+        fontWeight: '700',
+        fontSize: 12,
+    },
+    
+    // Grid de productos
+    gridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    productCard: {
+        width: '48%',
+        backgroundColor: colors.surfaceDark,
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+    },
+    productCardHighlighted: {
+        borderColor: colors.warning,
+        borderWidth: 2,
+    },
+    productName: {
+        color: colors.textInverse,
+        fontWeight: '700',
+        fontSize: 15,
+        marginBottom: 8,
+    },
+    productMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+        gap: 6,
+    },
+    colorDot: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+    },
+    productVariant: {
+        color: colors.textLight,
+        fontSize: 13,
+    },
+    productFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+    },
+    productStock: {
+        color: colors.textLight,
+        fontSize: 11,
+    },
+    productPrice: {
+        color: colors.primary,
+        fontWeight: '800',
+        fontSize: 16,
+    },
+    addButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addButtonText: {
+        color: colors.textInverse,
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    
+    // Empty state
+    emptyState: {
+        backgroundColor: colors.surfaceDark,
+        borderRadius: 16,
+        padding: 32,
+        alignItems: 'center',
+    },
+    emptyIcon: {
+        fontSize: 48,
+        marginBottom: 12,
+    },
+    emptyText: {
+        color: colors.textInverse,
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    emptyHint: {
+        color: colors.textLight,
+        fontSize: 13,
+    },
+    
+    // Items del pedido
+    itemsList: {
+        gap: 10,
+    },
+    orderItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surfaceDark,
+        borderRadius: 14,
+        padding: 14,
+        gap: 12,
+    },
+    orderItemInfo: {
+        flex: 1,
+    },
+    orderItemName: {
+        color: colors.textInverse,
+        fontWeight: '700',
+        fontSize: 14,
+    },
+    orderItemVariant: {
+        color: colors.textLight,
+        fontSize: 12,
+        marginTop: 2,
+    },
+    orderItemPrice: {
+        color: colors.textLight,
+        fontSize: 12,
+        marginTop: 2,
+    },
+    orderItemQty: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.backgroundDark,
+        borderRadius: 10,
+        overflow: 'hidden',
+    },
+    qtyBtn: {
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    qtyBtnText: {
+        color: colors.textInverse,
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    qtyValue: {
+        color: colors.textInverse,
+        fontWeight: '700',
+        fontSize: 14,
+        paddingHorizontal: 8,
+        minWidth: 30,
+        textAlign: 'center',
+    },
+    orderItemSubtotal: {
+        color: colors.primary,
+        fontWeight: '800',
+        fontSize: 15,
+        minWidth: 80,
+        textAlign: 'right',
     },
 })

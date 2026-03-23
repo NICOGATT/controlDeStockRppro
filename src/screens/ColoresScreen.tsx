@@ -2,6 +2,7 @@ import {useState, useEffect} from 'react';
 import { View, Text, Pressable, FlatList, StyleSheet, TextInput } from 'react-native';
 import { apiFetch } from '../api/apiClient';
 import { Color } from '../types/Color';
+import { colors } from '../theme/colors';
 
 export default function ColoresScreen({navigation} : any) {
     const [colores, setColores] = useState<Color[]>([]); 
@@ -52,6 +53,7 @@ export default function ColoresScreen({navigation} : any) {
                 <TextInput
                     style = {styles.input}
                     placeholder='Ej : Rojo, Azul...'
+                    placeholderTextColor={colors.textLight}
                     value={nombre}
                     onChangeText={setNombre}
                 />
@@ -86,12 +88,14 @@ export default function ColoresScreen({navigation} : any) {
 const styles = StyleSheet.create({
     container : {
         flex : 1,
-        padding : 16
+        padding : 16,
+        backgroundColor: colors.backgroundDark
     }, 
     titulo : {
         fontSize : 24,
         fontWeight : "700", 
-        marginBottom : 16
+        marginBottom : 16,
+        color: colors.textInverse
     }, 
     fila : {
         flexDirection : "row",
@@ -101,31 +105,38 @@ const styles = StyleSheet.create({
     input : {
         flex : 1,
         borderWidth : 1, 
-        borderColor : "#ccc", 
+        borderColor : colors.borderDark, 
         borderRadius : 8, 
-        padding : 10
-    }, 
+        padding : 10,
+        backgroundColor: colors.surfaceDark,
+        color: colors.textPrimary
+    },
     boton : {
-        backgroundColor : "#111",
+        backgroundColor : colors.primary,
         padding : 10, 
         borderRadius : 8, 
         justifyContent : "center"
-    }, 
+    },
     botonTexto : {
-        color : "white", 
+        color : colors.textInverse, 
         fontWeight : "700"
-    }, 
+    },
     item : {
         flexDirection: "row", 
         justifyContent : 'space-between', 
         padding : 12, 
         borderBottomWidth : 1, 
-        borderColor : "#eee"
-    }, 
+        borderColor : colors.borderDark,
+        backgroundColor: colors.surfaceDark,
+        borderRadius: 8,
+        marginBottom: 8
+    },
     itemTexto : {
-        fontSize : 16
-    }, 
+        fontSize : 16,
+        color: colors.textPrimary
+    },
     eliminar : {
-        fontSize: 18
+        fontSize: 18,
+        color: colors.error
     }
 })

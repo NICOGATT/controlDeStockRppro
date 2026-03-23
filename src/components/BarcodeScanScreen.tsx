@@ -5,6 +5,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
+import { colors } from "../theme/colors";
 
 type Props = {
   visible : boolean, 
@@ -92,21 +93,21 @@ export default function GenerarCodigoButton({
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: colors.overlay,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
         <View
           style={{
-            backgroundColor: "white",
+            backgroundColor: colors.surface,
             padding: 20,
             borderRadius: 12,
             width: 300,
             alignItems: "center",
           }}
         >
-          <Text style={{ fontWeight: "800", marginBottom: 10 }}>
+          <Text style={{ fontWeight: "800", marginBottom: 10, color: colors.textPrimary }}>
             {producto?.nombre ?? ""}
           </Text>
 
@@ -116,7 +117,7 @@ export default function GenerarCodigoButton({
             getRef={(c) => (qrRef.current = c)}
           />
 
-          <Text style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+          <Text style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
               ID: {producto?.id ?? 0}
           </Text>
 
@@ -125,20 +126,20 @@ export default function GenerarCodigoButton({
             disabled = {!qrRef.current}
             style={{
               marginTop: 14,
-              backgroundColor: "#111",
+              backgroundColor: colors.surfaceDark,
               padding: 12,
               borderRadius: 10,
               width: "100%",
               alignItems: "center",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "800" }}>
+            <Text style={{ color: colors.textInverse, fontWeight: "800" }}>
               Descargar / Compartir PDF
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={{ marginTop: 12 }}>
-            <Text style={{ fontWeight: "800" }}>Cerrar</Text>
+            <Text style={{ fontWeight: "800", color: colors.primary }}>Cerrar</Text>
           </TouchableOpacity>
         </View>
       </View>
