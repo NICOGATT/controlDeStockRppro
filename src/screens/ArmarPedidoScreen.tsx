@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from "react"; 
 import {Alert, FlatList, Text, TextInput, TouchableOpacity,useWindowDimensions,View, StyleSheet, Pressable, Modal, Platform, ScrollView, ActivityIndicator} from "react-native"; 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StockProducto } from "../types/StockProducto";
 import { Product } from "../types/Product";
 import { Cliente } from "../types/Cliente";
@@ -11,6 +12,7 @@ import { Direccion } from "../types/Direccion";
 import { Prefactura } from "../types/Prefactura";
 import { PrefacturaProducto } from "../types/PrefacturaProducto";
 import { colors } from "../theme/colors";
+import { useResponsive } from "../hooks/useResponsive";
 
 
 
@@ -30,6 +32,8 @@ const getColorHex = (colorName?: string): string => {
 
 export default function ArmarPedidoScreen({navigation} : any) {
     const { width } = useWindowDimensions();
+    const { isMobile } = useResponsive();
+    const insets = useSafeAreaInsets();
     const isSmall = width < 380;
 
     const [clientes, setClientes] = useState<Cliente[]>([]); 
@@ -59,6 +63,33 @@ export default function ArmarPedidoScreen({navigation} : any) {
         "Exento",
         "No Responsable"
     ];
+
+    const toNull = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : undefined;
+    };
+
+    const buildClienteBody = () => {
+        const body: Record<string, any> = {
+            nombre: nuevoNombre.trim(),
+        };
+        
+        const tel = toNull(nuevoTel);
+        if (tel !== undefined) body.telefono = tel;
+        
+        const c = toNull(nuevoCuit);
+        if (c !== undefined) body.cuit = c;
+        
+        const e = toNull(nuevoEmail);
+        if (e !== undefined) body.email = e;
+        
+        const emp = toNull(nuevoEmpresa);
+        if (emp !== undefined) body.nombreEmpresa = emp;
+        
+        if (nuevaCondicion) body.condicionTributaria = nuevaCondicion;
+        
+        return body;
+    };
 
     const [qVar, setQVar] = useState("");
     const [searchVarText, setSearchVarText] = useState("");
@@ -93,7 +124,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
         if (!searchClienteQuery.trim()) return clientes;
         const q = searchClienteQuery.toLowerCase();
         return clientes.filter(c => 
-            c.nombre.toLowerCase().includes(q) ||
+            c.nombre?.toLowerCase().includes(q) ||
             c.telefono?.toLowerCase().includes(q)
         );
     }, [clientes, searchClienteQuery]);
@@ -125,18 +156,27 @@ export default function ArmarPedidoScreen({navigation} : any) {
     };
 
     async function loadClientes() {
-        const res = await apiFetch<Cliente[]>('/api/clientes');
-        console.log("=== LOAD CLIENTES ===");
-        console.log("API Response:", JSON.stringify(res, null, 2));
-        const mapped : Cliente[] = res.map((c : any) => ({ 
-            id : c.id, 
-            nombre : c.nombre, 
-            telefono : c.telefono,
-            direccion : c.direccion
-        })); 
-        console.log("Mapped:", JSON.stringify(mapped, null, 2));
-        setClientes(mapped);
-        if(!clientesSel && mapped.length > 0) setClientesSel(mapped[0]);
+        try {
+            const res = await apiFetch<Cliente[]>('/api/clientes');
+            console.log("=== LOAD CLIENTES ===");
+            console.log("API Response:", JSON.stringify(res, null, 2));
+            const mapped : Cliente[] = res.map((c : any) => ({ 
+                id : c.id, 
+                nombre : c.nombre, 
+                telefono : c.telefono,
+                cuit : c.cuit, 
+                email : c.email, 
+                nombreEmpresa : c.nombreEmpresa, 
+                condicionTributaria: c.condicionTributaria, 
+                direccion : c.direccion
+            })); 
+            console.log("Mapped:", JSON.stringify(mapped, null, 2));
+            setClientes(mapped);
+            if(!clientesSel && mapped.length > 0) setClientesSel(mapped[0]);
+        } catch (err: any) {
+            console.error("Error loadClientes:", err);
+            console.error("Response:", err.response?.data);
+        }
     }
 
     async function loadStockProductos() {
@@ -256,27 +296,29 @@ export default function ArmarPedidoScreen({navigation} : any) {
         try {
             setLoadingCliente(true);
             
+            const body = buildClienteBody();
+            console.log("CLIENTE BODY:", JSON.stringify(body, null, 2));
+            
             const res = await apiFetch<Cliente>('/api/clientes', {
                 method : 'POST', 
-                body : {
-                    nombre : nuevoNombre.trim(),
-                    telefono : nuevoTel.trim() || undefined,
-                    cuit : nuevoCuit.trim() || undefined,
-                    email : nuevoEmail.trim() || undefined,
-                    nombreEmpresa : nuevoEmpresa.trim() || undefined,
-                    condicionTributaria : nuevaCondicion || undefined,
-                    direccion : nuevoDir.trim(),
-                    codigoPostal : nuevoCP.trim() || undefined,
-                    ciudad : nuevaCiudad.trim() || undefined,
-                    provincia : nuevaProvincia.trim() || undefined
-                }
-            })
+                body : body
+            });
+            
+            let direccionCreada: Direccion | undefined;
+            
+            if (nuevoDir.trim()) {
+                direccionCreada = await crearDireccion(res.id);
+            }
             
             const c : Cliente = {
                 id : res.id,
                 nombre : res.nombre,
                 telefono : res.telefono,
-                direccion : { id: 0, direccion: nuevoDir.trim(), clienteId: res.id }
+                cuit : res.cuit, 
+                email : res.email, 
+                nombreEmpresa : res.nombreEmpresa, 
+                condicionTributaria : res.condicionTributaria, 
+                direccion : direccionCreada
             }
 
             setClientes((p) => [c, ...p]);
@@ -284,8 +326,11 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
             resetFormCliente();
             setModalCliente(false);
-        } catch (err) {
-            Alert.alert('Error', 'No se pudo crear el cliente');
+        } catch (err: any) {
+            console.error("Error crearCliente:", err);
+            console.error("Response:", err.response?.data);
+            const msg = err.response?.data?.message || err.response?.data?.error || 'No se pudo crear el cliente';
+            Alert.alert('Error', msg);
         } finally {
             setLoadingCliente(false);
         }
@@ -304,29 +349,32 @@ export default function ArmarPedidoScreen({navigation} : any) {
         setNuevaProvincia("");
     }
 
-    async function crearDireccion (clienteId : number) {
+    async function crearDireccion(clienteId: number) {
         if (!nuevoDir.trim()) {
-            Alert.alert('Falta info', 'La direccion es requerida');
-            return;
+            return undefined;
         }
         try {
             const res = await apiFetch<Direccion>('/api/direcciones', {
-                method : 'POST', 
-                body : {
-                    direccion : nuevoDir.trim(),
-                    clienteId : clienteId
+                method: 'POST', 
+                body: {
+                    direccion: nuevoDir.trim(),
+                    clienteId: clienteId, 
+                    codigoPostal: toNull(nuevoCP),
+                    provincia: toNull(nuevaProvincia)
                 }
-            })
-            const d : Direccion= {
-                id : res.id,
-                direccion : res.direccion,
-                clienteId : res.clienteId
-            }
+            });
+            const d: Direccion = {
+                id: res.id,
+                direccion: res.direccion,
+                clienteId: res.clienteId,
+                codigoPostal: res.codigoPostal,
+                provincia: res.provincia
+            };
             setDireccion(d);
-            setNuevoDir("");
             return d; 
         } catch (err) {
-            Alert.alert('Error', 'No se pudo crear la direccion');
+            Alert.alert('Error', 'No se pudo crear la dirección');
+            return undefined;
         }
     }
 
@@ -393,9 +441,14 @@ export default function ArmarPedidoScreen({navigation} : any) {
         setDireccion2(direccionStr);
 
         const bodyPrefactura = {
-            cliente: clientesSel.nombre.trim(),
-            telefono: clientesSel.telefono?.trim() || "",
-            direccion: direccionStr 
+            cliente: clientesSel.nombre?.trim() || null,
+            telefono: clientesSel.telefono?.trim() || null,
+            email: clientesSel.email?.trim() || null,
+            nombreEmpresa: clientesSel.nombreEmpresa?.trim() || null,
+            condicionTributaria: clientesSel.condicionTributaria || null,
+            direccion: direccionStr || null,
+            codigoPostal: direcciones?.[0]?.codigoPostal || null,
+            provincia: direcciones?.[0]?.provincia || null,
         };
         try {
             console.log("=== GO PREFACTURA ===");
@@ -454,7 +507,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
     }
     const columns = isSmall ? 1 : 2;
     return ( 
-        <View style={[styles.screenContainer]}>
+        <View style={[styles.screenContainer, isMobile && { paddingBottom: 80 }]}>
         <ScrollView style = {styles.scrollContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <Text style = {styles.screenTitle}>Armar pedido</Text>
             
@@ -773,24 +826,27 @@ export default function ArmarPedidoScreen({navigation} : any) {
             </Modal>
         </ScrollView>
 
-        <View style = {styles.footerFixed}>
-            <View style = {styles.footerLeft}>
-                <Text style = {styles.mutedFooter}>Total:</Text>
-                <Text style = {{fontSize : 18, fontWeight : "800", color : colors.textInverse}}>{formatMoney(total)}</Text>
-            </View>
-            <View style = {styles.footerButtons}>
-                <TouchableOpacity 
-                    onPress={goPrefactura}
-                    style = {styles.footerBtn}
-                >
-                    <Text style = {{color : colors.textInverse, fontWeight : "800"}}>Prefactura</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    onPress={confirmarPedido}
-                    style = {[styles.footerBtn, {backgroundColor : colors.success}]}
-                >
-                    <Text style = {{color : colors.textInverse, fontWeight : "800"}}>Confirmar</Text>
-                </TouchableOpacity>
+        <View style={isMobile ? [styles.footerFixed, { bottom: insets.bottom > 0 ? 60 + insets.bottom : 80 }] : [styles.footerFixed, { bottom: 0 }]}>
+            <View style={styles.footerContent}>
+                <View style={styles.totalSection}>
+                    <Text style={styles.cartIcon}>🛒</Text>
+                    <Text style={styles.totalLabel}>Total:</Text>
+                    <Text style={styles.totalValue}>{formatMoney(total)}</Text>
+                </View>
+                <View style={styles.actionsContainer}>
+                    <TouchableOpacity 
+                        onPress={goPrefactura}
+                        style={styles.prefacturaBtn}
+                    >
+                        <Text style={styles.prefacturaBtnText}>Prefactura</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        onPress={confirmarPedido}
+                        style={styles.confirmarBtn}
+                    >
+                        <Text style={styles.confirmarBtnText}>Confirmar</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
         </View>
@@ -800,7 +856,7 @@ export default function ArmarPedidoScreen({navigation} : any) {
 
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, backgroundColor: colors.backgroundDark, paddingBottom: 90 },
+    container: { flex: 1, padding: 16, backgroundColor: colors.backgroundDark, paddingBottom: 60 },
     title: { fontSize: 22, fontWeight: "800", color: colors.textInverse, marginBottom: 10 },
 
     section: { marginTop: 12 },
@@ -898,27 +954,65 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         backgroundColor: colors.surfaceDark,
-        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.borderDark,
+        zIndex: 1,
+    },
+    footerContent: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        borderTopWidth: 1,
-        borderTopColor: colors.borderDark,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
     },
-    footerLeft: {
-        alignItems: "flex-start",
-    },
-    mutedFooter: { color: colors.textLight, marginTop: 2 },
-    footerButtons: {
+    totalSection: {
         flexDirection: "row",
-        gap: 10,
-    },
-    footerBtn: {
-        backgroundColor: colors.primaryDark,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
         alignItems: "center",
+        gap: 6,
+    },
+    cartIcon: {
+        fontSize: 18,
+    },
+    totalLabel: {
+        fontSize: 13,
+        fontWeight: "500",
+        color: colors.textLight,
+    },
+    totalValue: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: colors.textInverse,
+    },
+    actionsContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    prefacturaBtn: {
+        backgroundColor: "transparent",
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.borderDark,
+    },
+    prefacturaBtnText: {
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontWeight: "600",
+    },
+    confirmarBtn: {
+        backgroundColor: colors.success,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        minWidth: 80,
+        alignItems: "center",
+    },
+    confirmarBtnText: {
+        color: colors.textInverse,
+        fontSize: 13,
+        fontWeight: "700",
     },
     searchContainer: {
         flexDirection: "row",
@@ -1112,7 +1206,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
-        paddingBottom: 140,
+        paddingBottom: 100,
     },
     screenTitle: {
         fontSize: 24,

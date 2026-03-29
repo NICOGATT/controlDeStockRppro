@@ -1,13 +1,16 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './navigation/AppNavigator';
 import { colors } from './theme/colors';
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <AppNavigator />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <AppNavigator />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

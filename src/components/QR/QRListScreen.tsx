@@ -126,6 +126,50 @@ function ProductHeader({ producto }: { producto: Product }) {
   );
 }
 
+const SearchHeader = React.memo(function SearchHeader({ 
+  searchText, 
+  onSearchTextChange, 
+  onSearchSubmit, 
+  onClear,
+  productCount, 
+  qrCount 
+}: { 
+  searchText: string; 
+  onSearchTextChange: (text: string) => void; 
+  onSearchSubmit: () => void;
+  onClear: () => void;
+  productCount: number; 
+  qrCount: number;
+}) {
+  return (
+    <View style={styles.listHeader}>
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por producto, color o talle..."
+          placeholderTextColor={colors.textLight}
+          value={searchText}
+          onChangeText={onSearchTextChange}
+          onSubmitEditing={onSearchSubmit}
+          returnKeyType="search"
+        />
+        {searchText.length > 0 && (
+          <TouchableOpacity onPress={onClear}>
+            <Text style={styles.clearIcon}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.statsRow}>
+        <Text style={styles.statsText}>
+          {productCount} productos • {qrCount} códigos QR
+        </Text>
+      </View>
+    </View>
+  );
+});
+
 interface QrViewerModalProps {
   visible: boolean;
   producto: Product | null;
@@ -443,6 +487,11 @@ export function QRListScreen({ navigation }: { navigation?: any }) {
 
   const totalQrs = sections.reduce((acc, s) => acc + s.data.length, 0);
 
+  const handleClearSearch = useCallback(() => {
+    setSearchText('');
+    setSearchQuery('');
+  }, []);
+
   const renderSectionHeader = ({ section }: { section: QrSection }) => (
     <ProductHeader producto={section.producto} />
   );
@@ -453,34 +502,6 @@ export function QRListScreen({ navigation }: { navigation?: any }) {
       producto={section.producto}
       onPress={() => handleQrPress(section.producto, item)}
     />
-  );
-
-  const renderHeader = () => (
-    <View style={styles.listHeader}>
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar por producto, color o talle..."
-          placeholderTextColor={colors.textLight}
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        {searchText.length > 0 && (
-          <TouchableOpacity onPress={() => { setSearchText(''); setSearchQuery(''); }}>
-            <Text style={styles.clearIcon}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.statsRow}>
-        <Text style={styles.statsText}>
-          {sections.length} productos • {totalQrs} códigos QR
-        </Text>
-      </View>
-    </View>
   );
 
   const renderEmpty = () => (
@@ -507,12 +528,19 @@ export function QRListScreen({ navigation }: { navigation?: any }) {
 
   return (
     <View style={styles.container}>
+      <SearchHeader
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+        onSearchSubmit={handleSearch}
+        onClear={handleClearSearch}
+        productCount={sections.length}
+        qrCount={totalQrs}
+      />
       <SectionList
         sections={sections}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
-        keyExtractor={(item, index) => `${item.productoId}-${item.colorId}-${item.talleId}`}
-        ListHeaderComponent={renderHeader}
+        keyExtractor={(item, index) => `${item.productoId ?? 'na'}-${item.colorId ?? 'na'}-${item.talleId ?? 'na'}-${index}`}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}

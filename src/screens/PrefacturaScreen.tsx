@@ -293,7 +293,7 @@ export function PrefacturaScreen({ navigation }: any) {
     // HEADER para FlatList
     const ListHeader = () => (
         <View style={isMobile ? styles.headerMobile : styles.header}>
-            <Text style={isMobile ? styles.titleMobile : styles.title}>Prefactura / Remito</Text>
+            <Text style={isMobile ? styles.titleMobile : styles.title}>Remito</Text>
             <Text style={styles.muted}>Código: {codigo}</Text>
             <Text style={styles.muted}>Fecha: {fecha}</Text>
             
@@ -494,7 +494,7 @@ export function PrefacturaScreen({ navigation }: any) {
                 showsVerticalScrollIndicator={true}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>Prefactura / Remito</Text>
+                    <Text style={styles.title}>Remito</Text>
                     <Text style={styles.muted}>Código: {codigo}</Text>
                     <Text style={styles.muted}>Fecha: {fecha}</Text>
                 </View>
@@ -573,14 +573,17 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 14,
+        padding: 18,
+        paddingTop: 8,
         paddingBottom: 100,
     },
     header: {
-        marginBottom: 12,
+        marginBottom: 16,
     },
     headerMobile: {
-        marginBottom: 12,
+        marginBottom: 16,
+        paddingTop: 8,
+        padding: 10
     },
     title: {
         color: colors.textInverse,
@@ -603,7 +606,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.borderDark,
         borderRadius: 16,
-        padding: 12,
+        padding: 20,
         marginBottom: 12,
     },
     boxMobile: {

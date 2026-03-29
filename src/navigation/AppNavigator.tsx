@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, Pressable, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Pressable, Modal, ScrollView, Platform } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/colors';
+
+function BackButton() {
+  const navigation = useNavigation();
+  return (
+    <Pressable onPress={() => navigation.goBack()} style={{ padding: 8 }}>
+      <Text style={{ fontSize: 24, color: colors.textInverse }}>←</Text>
+    </Pressable>
+  );
+}
 
 import ProductsScreen from '../screens/ProductsScreen';
 import ArmarPedidoScreen from '../screens/ArmarPedidoScreen';
@@ -19,8 +30,6 @@ import TallesScreen from '../screens/TallesScreen';
 import { BackupScreen } from '../components/Backup';
 import { SettingsScreen } from '../components/Settings';
 import { QRListScreen } from '../components/QR';
-
-import { ProductsIcon, PedidoIcon, PrefacturasIcon, MovimientosIcon, SettingsIcon } from '../components/Navigation/Icons';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -94,15 +103,22 @@ function DesktopTopNav({ currentRoute, onNavigate, onAddProduct }: {
 
 interface TabIconProps {
   focused: boolean;
-  icon: React.ReactNode;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
   label: string;
 }
 
-function TabIcon({ focused, icon, label }: TabIconProps) {
+function TabIcon({ focused, activeIcon, inactiveIcon, label }: TabIconProps) {
   return (
-    <View style={styles.tabIconContainer}>
-      {icon}
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
+    <View style={stylesMobile.tabItem}>
+      <View style={[stylesMobile.iconContainer, focused && stylesMobile.iconContainerActive]}>
+        <Ionicons
+          name={focused ? activeIcon : inactiveIcon}
+          size={22}
+          color={focused ? colors.primary : colors.textLight}
+        />
+      </View>
+      <Text style={[stylesMobile.tabLabel, focused && stylesMobile.tabLabelActive]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -112,6 +128,7 @@ function TabIcon({ focused, icon, label }: TabIconProps) {
 function MobileTabs({ navigation }: { navigation: any }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const parentNavigation = navigation.getParent();
+  const insets = useSafeAreaInsets();
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -207,7 +224,11 @@ function MobileTabs({ navigation }: { navigation: any }) {
           headerStyle: { backgroundColor: colors.surfaceDark },
           headerTintColor: colors.textInverse,
           headerTitleStyle: { fontWeight: '600' },
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: {
+            ...stylesMobile.tabBar,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : (Platform.OS === 'ios' ? 28 : 40),
+            height: insets.bottom > 0 ? 60 + insets.bottom : (Platform.OS === 'ios' ? 84 : 80),
+          },
           tabBarShowLabel: false,
         }}
       >
@@ -219,7 +240,8 @@ function MobileTabs({ navigation }: { navigation: any }) {
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
-                icon={<ProductsIcon size={22} color={focused ? colors.primary : colors.textLight} />}
+                activeIcon="cube"
+                inactiveIcon="cube-outline"
                 label="Productos"
               />
             ),
@@ -233,7 +255,8 @@ function MobileTabs({ navigation }: { navigation: any }) {
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
-                icon={<PedidoIcon size={22} color={focused ? colors.primary : colors.textLight} />}
+                activeIcon="cart"
+                inactiveIcon="cart-outline"
                 label="Pedido"
               />
             ),
@@ -243,11 +266,12 @@ function MobileTabs({ navigation }: { navigation: any }) {
           name="Prefacturas"
           component={PrefacturasScreen}
           options={{
-            headerTitle: 'Prefacturas',
+            headerTitle: 'Facturas',
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
-                icon={<PrefacturasIcon size={22} color={focused ? colors.primary : colors.textLight} />}
+                activeIcon="document-text"
+                inactiveIcon="document-text-outline"
                 label="Facturas"
               />
             ),
@@ -257,12 +281,13 @@ function MobileTabs({ navigation }: { navigation: any }) {
           name="Movimientos"
           component={MovementsScreens}
           options={{
-            headerTitle: 'Movimientos',
+            headerTitle: 'Mov.',
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
-                icon={<MovimientosIcon size={22} color={focused ? colors.primary : colors.textLight} />}
-                label="Movimientos"
+                activeIcon="stats-chart"
+                inactiveIcon="stats-chart-outline"
+                label="Mov."
               />
             ),
           }}
@@ -275,7 +300,8 @@ function MobileTabs({ navigation }: { navigation: any }) {
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
-                icon={<SettingsIcon size={22} color={focused ? colors.primary : colors.textLight} />}
+                activeIcon="settings"
+                inactiveIcon="settings-outline"
                 label="Config"
               />
             ),
@@ -371,17 +397,18 @@ export function AppNavigator() {
           options={{
             title: 'Agregar Producto',
             presentation: 'modal',
+            headerLeft: () => <BackButton />,
           }}
         />
         <Stack.Screen
           name="EditProduct"
           component={EditProductScreen}
-          options={{ title: 'Editar Producto' }}
+          options={{ title: 'Editar Producto', headerLeft: () => <BackButton /> }}
         />
         <Stack.Screen
           name="Prefactura"
           component={PrefacturaScreen}
-          options={{ title: 'Prefactura' }}
+          options={{ title: 'Prefactura', headerLeft: () => <BackButton /> }}
         />
         <Stack.Screen
           name="ScanProduct"
@@ -389,27 +416,28 @@ export function AppNavigator() {
           options={{
             title: 'Escanear',
             presentation: 'fullScreenModal',
+            headerLeft: () => <BackButton />,
           }}
         />
         <Stack.Screen
           name="Colores"
           component={ColoresScreen}
-          options={{ title: 'Colores' }}
+          options={{ title: 'Colores', headerLeft: () => <BackButton /> }}
         />
         <Stack.Screen
           name="Talles"
           component={TallesScreen}
-          options={{ title: 'Talles' }}
+          options={{ title: 'Talles', headerLeft: () => <BackButton /> }}
         />
         <Stack.Screen
           name="Backup"
           component={BackupScreen}
-          options={{ title: 'Backups' }}
+          options={{ title: 'Backups', headerLeft: () => <BackButton /> }}
         />
         <Stack.Screen
           name="QRList"
           component={QRListScreen}
-          options={{ title: 'Códigos QR' }}
+          options={{ title: 'Códigos QR', headerLeft: () => <BackButton /> }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -623,5 +651,57 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontSize: 12,
     textAlign: 'center',
+  },
+});
+
+const stylesMobile = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 84 : 70,
+    backgroundColor: colors.surfaceDark,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDark,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 40,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    maxWidth: 80,
+  },
+  iconContainer: {
+    width: 40,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+  },
+  iconContainerActive: {
+    backgroundColor: colors.primary + '15',
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: colors.textLight,
+    marginTop: 4,
+    maxWidth: 72,
+    textAlign: 'center',
+  },
+  tabLabelActive: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

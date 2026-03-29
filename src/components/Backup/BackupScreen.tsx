@@ -105,7 +105,9 @@ export function BackupScreen() {
 
   const formatDate = (dateString: string) => {
     try {
+      if (!dateString) return '-';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
       return date.toLocaleDateString('es-ES', {
         day: '2-digit',
         month: 'short',
