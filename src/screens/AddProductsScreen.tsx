@@ -27,11 +27,9 @@ export default function AddProductsScreen ({navigation}: any) {
 
     const nombreValido = nombre.trim().length > 0;
     const variantesValidas = variantes.length > 0; 
-    const precioValido = !isNaN(Number(precio)) && Number(precio) > 0;
+    const precioValido = precio.trim() === "" || (!isNaN(Number(precio)) && Number(precio) > 0);
     const nroDeArticuloValido = nroArticulo.trim().length > 0; 
-    const precioVarianteValido = variantes.every((v) => Number(v.precio) > 0); 
-    const tieneTallesConPrecioPropio = variantes.some((v) => v.talle.nombre.trim().toLowerCase() !== "unico");
-    const formValido = nombreValido && variantesValidas && nroDeArticuloValido && (tieneTallesConPrecioPropio ? precioVarianteValido : precio);
+    const formValido = nombreValido && variantesValidas && nroDeArticuloValido;
 
     useEffect(() => {
         (async () => {
@@ -48,7 +46,7 @@ export default function AddProductsScreen ({navigation}: any) {
 
     async function handleSave() {
         if(!formValido) {
-            console.log('Formulario no valido: ', {nombreValido, variantesValidas, precioValido});
+            console.log('Formulario no valido: ', {nombreValido, variantesValidas, nroDeArticuloValido});
             return; 
         };
         try {
@@ -61,7 +59,7 @@ export default function AddProductsScreen ({navigation}: any) {
                         color: v.color.nombre, 
                         talle: v.talle.nombre, 
                         cantidad: Number(v.cantidad), 
-                        precio: v.precio ? Number(v.precio) : Number(precio)
+                        precio: v.precio ? Number(v.precio) : (precio.trim() ? Number(precio) : undefined)
                     })), 
                     tipoDePrenda: tipoDePrenda?.nombre ?? null
                 }
@@ -99,7 +97,12 @@ export default function AddProductsScreen ({navigation}: any) {
                 const idx = prev.findIndex((v) => v.color.id === colorFinal!.id && v.talle.id === talleFinal!.id);
 
                 if (idx === -1) {
-                    return [...prev, {color: colorFinal!, talle: talleFinal!, cantidad: q, precio: Number(precioVariante) || Number(precio)}];
+                    return [...prev, {
+                        color: colorFinal!,
+                        talle: talleFinal!,
+                        cantidad: q,
+                        precio: Number(precioVariante) || (precio.trim() ? Number(precio) : undefined)
+                    }];
                 }
                 
                 const copia = [...prev]; 
@@ -186,7 +189,7 @@ export default function AddProductsScreen ({navigation}: any) {
             </View>
             
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Precio</Text>
+                <Text style={styles.label}>Precio (opcional)</Text>
                 <TextInput
                     placeholder="Ej: 12000"
                     value={precio}

@@ -1,7 +1,7 @@
 import { View, Text, Pressable, StyleSheet, TextInput, FlatList, ActivityIndicator } from "react-native";
 import { ProductItem } from "../components/ProductItem";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, memo, useRef } from "react";
 import GenerarCodigoButton from "../components/BarcodeScanScreen";
 import { apiFetch } from "../api/apiClient";
 import { Product } from "../types/Product";
@@ -65,21 +65,29 @@ function QuickMenu({ navigation }: { navigation: any }) {
 }
 
 /**
- * Barra de búsqueda
+ * Barra de búsqueda - input normal controlado
  */
-function SearchBar({
-  searchText,
-  setSearchText,
+const SearchBar = memo(function SearchBar({
   onSearch,
   total,
   filtered,
 }: {
-  searchText: string;
-  setSearchText: (text: string) => void;
-  onSearch: () => void;
+  onSearch: (query: string) => void;
   total: number;
   filtered: number;
 }) {
+  // ✅ Estado local — el padre no se entera mientras escribís
+  const [searchText, setSearchText] = useState("");
+
+  const handleSubmit = () => {
+    onSearch(searchText);
+  };
+
+  const handleClear = () => {
+    setSearchText("");
+    onSearch("");
+  };
+
   return (
     <View style={styles.searchContainer}>
       <View style={styles.searchRow}>
@@ -89,22 +97,24 @@ function SearchBar({
           placeholderTextColor={colors.textLight}
           value={searchText}
           onChangeText={setSearchText}
-          onSubmitEditing={onSearch}
+          onSubmitEditing={handleSubmit}
           returnKeyType="search"
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-        <Pressable style={styles.searchButton} onPress={onSearch}>
+        <Pressable style={styles.searchButton} onPress={handleSubmit}>
           <Text style={styles.searchButtonText}>🔍</Text>
         </Pressable>
       </View>
+
       <Text style={styles.resultCount}>
-        {filtered === total 
+        {filtered === total
           ? `${total} productos`
-          : `${filtered} de ${total} productos`
-        }
+          : `${filtered} de ${total} productos`}
       </Text>
     </View>
   );
-}
+});
 
 /**
  * Badge que muestra por qué coincidió la búsqueda
@@ -238,7 +248,7 @@ function parseQrCode(data: string): { productoId: string; talleId: number; color
   if (parts.length < 5 || parts[0] !== "rppro" || parts[1] !== "stock") {
     return null;
   }
-  const productoId = parts[2];
+  const productoId = String(parts[2]);
   const talleId = Number(parts[3]);
   const colorId = Number(parts[4]);
   
@@ -252,11 +262,15 @@ function findStockProducto(
   talleId: number,
   colorId: number
 ): { producto: Product; stockProducto: StockProducto } | null {
-  const producto = productos.find((p) => p.id === productoId);
+  const pid = String(productoId);
+  const producto = productos.find((p) => String(p.id) === pid);
   if (!producto?.stockProductos) return null;
 
+  const tid = Number(talleId);
+  const cid = Number(colorId);
+  
   const stockProducto = producto.stockProductos.find(
-    (sp) => sp.talleId === talleId && sp.colorId === colorId
+    (sp) => Number(sp.talleId) === tid && Number(sp.colorId) === cid
   );
   if (!stockProducto) return null;
 
@@ -364,8 +378,8 @@ export default function ProductsScreen({ navigation, route }: { navigation: any;
   // HANDLERS
   // ============================================================================
 
-  const handleSearch = () => {
-    setSearchQuery(searchText);
+  const handleSearch = (query?: string) => {
+    setSearchQuery(query ?? searchText);
   };
 
   const handleMoverStock = async (variante: StockProducto, productoId: string, delta: number) => {
@@ -416,19 +430,6 @@ export default function ProductsScreen({ navigation, route }: { navigation: any;
   // RENDERIZADO
   // ============================================================================
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <QuickMenu navigation={navigation} />
-      <SearchBar
-        searchText={searchText}
-        setSearchText={setSearchText}
-        onSearch={handleSearch}
-        total={productos.length}
-        filtered={filteredProductos.length}
-      />
-    </View>
-  );
-
   const renderProduct = ({ item }: { item: Product }) => (
     <ProductCard
       producto={item}
@@ -457,14 +458,23 @@ export default function ProductsScreen({ navigation, route }: { navigation: any;
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <QuickMenu navigation={navigation} />
+        <SearchBar
+          onSearch={handleSearch}
+          total={productos.length}
+          filtered={filteredProductos.length}
+        />
+      </View>
+
       <FlatList
         data={filteredProductos}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
 
       {/* Modales (fuera de FlatList para evitar problemas de renderizado) */}
